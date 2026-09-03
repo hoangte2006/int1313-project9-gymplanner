@@ -6,7 +6,7 @@ Dự án thiết kế cơ sở dữ liệu học phần **INT1313 - Cơ sở d�
 ---
 
 ## 👥 Nhóm Thực Hiện: ĐÔNG VUI
-*   **Giảng viên hướng dẫn:** Cô Lê Hà Thanh
+*   **Giảng viên hướng dẫn:** Lê Hà Thanh
 *   **Danh sách thành viên:**
     1.  **Trần Đức Phương** - MSSV: `N24DCCN154` (Lớp: *D24CQCN02-N*) — Phân vùng Lập lịch & Xung đột
     2.  **Nguyễn Lưu Triệu Quang** - MSSV: `N24DCCN158` (Lớp: *D24CQCN02-N*) — Phân vùng Hội viên & Đăng ký gói
