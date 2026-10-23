@@ -14,9 +14,23 @@ Dự án thiết kế cơ sở dữ liệu học phần **INT1313 - Cơ sở d�
 
 ---
 
-## 📂 Giai đoạn 1: Thiết kế Cơ sở dữ liệu Khái niệm (Conceptual Design)
---
+## 📌 Kế hoạch & phân việc
 
-## 🔑 Các Điểm Nhấn Thiết Kế Đặc Sắc của Nhóm Đông Vui:
+Project tracking sheet (maintained by Te): [Google Sheets – bảng phân việc](https://docs.google.com/spreadsheets/d/1WJ7M7tDn2BU7JbkWXyqd3dUhDNl1oipwcD2o-M5TgnY/edit?gid=14#gid=14)
 
-# int1313-project9-gymplanner
+---
+
+## 📂 Cấu trúc thư mục
+
+```
+docs/Report_Gym_Planner.docx   ← báo cáo (1 file duy nhất)
+docs/                          ← hình dùng trong báo cáo
+README.md                      ← mô tả ngắn + link kế hoạch + cách chạy SQL
+sql/                           ← 01_tao_bang.sql, 02_trigger.sql, ... (đánh số theo thứ tự chạy)
+so_do/                         ← ER, EER (file .png)
+anh_kiem_chung/                ← ảnh chụp kết quả chạy
+```
+
+## ▶️ Cách chạy SQL
+
+Chạy các file trong thư mục `sql/` **theo đúng thứ tự số** (`01_tao_bang.sql` → `02_trigger.sql` → ...) trên cùng một database. Ảnh chụp kết quả sau mỗi bước lưu trong `anh_kiem_chung/`.
