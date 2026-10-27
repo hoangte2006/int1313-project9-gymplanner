@@ -1,0 +1,8 @@
+# Sao chep file nay thanh db.properties (file db.properties KHONG duoc commit len GitHub)
+# May cua ban da bat TCP/IP cong 1433 tu du an OOP (db/setup_local_sqlserver.ps1), nen dung cong 1433.
+db.url=jdbc:sqlserver://localhost:1433;databaseName=GymPlanner_dev;encrypt=false;trustServerCertificate=true
+db.user=gym_dev
+db.password=DOI_MAT_KHAU_CUA_BAN
+
+# Neu chua ket noi duoc, thu instance co ten (can SQL Server Browser dang chay):
+# db.url=jdbc:sqlserver://localhost;instanceName=SQLEXPRESS;databaseName=GymPlanner_dev;encrypt=false;trustServerCertificate=true
