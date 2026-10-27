@@ -3,3 +3,4 @@ src/main/resources/db.properties
 .idea/
 .vscode/
 *.iml
+.history/
