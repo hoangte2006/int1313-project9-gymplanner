@@ -8,7 +8,7 @@
    Notes
    - SQL Server has no RESTRICT keyword: RESTRICT in the report = NO ACTION here.
    - ON UPDATE is NO ACTION everywhere (all PKs are IDENTITY and never updated).
-   - Triggers and indexes are in later scripts (02, 03).
+   - Triggers and indexes are in later scripts (02).
    ===================================================================== */
 
 -- 1) Create the database (only if it does not exist yet)
