@@ -4,7 +4,7 @@
    Phase 3 - Script 02: triggers for the business rules
 
    Run order: 01_create_tables.sql -> 03_sample_data.sql -> 02_triggers.sql
-              -> 03_indexes.sql -> 05_trigger_tests.sql
+              -> 04_indexes.sql -> 05_trigger_tests.sql
 
    How every trigger below works
    - SQL Server has no BEFORE trigger. These are AFTER triggers: the row is
