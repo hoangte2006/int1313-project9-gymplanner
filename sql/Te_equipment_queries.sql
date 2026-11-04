@@ -1,7 +1,6 @@
 /* =====================================================================
-   Team Dong Vui (#9) - Script 04: sample queries (Equipment & Maintenance)
-   Draft: the schema is not final yet, so these queries may change.
-   Run after 01_create_tables.sql, 02_triggers.sql, 03_sample_data.sql.
+   Team Dong Vui (#9) - Sample queries (Equipment & Maintenance) - Te
+   Design B. Run after 01_create_tables.sql, 04_sample_data.sql, 02_triggers.sql.
    Screenshots of the results: anh_kiem_chung/te_05 ... te_10.
    ===================================================================== */
 
@@ -27,7 +26,7 @@ LEFT JOIN dbo.MAINTENANCE_LOG AS Mg ON Eq.Equipment_ID = Mg.Equipment_ID
 GROUP BY Eq.Equipment_ID, Eq.Equipment_Name;
 GO
 
--- Q2b. Same query with INNER JOIN (equipment with no log disappears: 6 rows instead of 10).
+-- Q2b. Same query with INNER JOIN (equipment with no log disappears: 3 rows instead of 6).
 SELECT Eq.Equipment_ID,
        Eq.Equipment_Name,
        ISNULL(SUM(Mg.Cost), 0) AS Total_Maintenance_Cost
@@ -49,14 +48,14 @@ WHERE  Mg.Equipment_ID = 1
 ORDER BY Mg.Maintenance_Date DESC;
 GO
 
--- Q4. Which equipment has a total maintenance cost above X? (X = 200)
+-- Q4. Which equipment has a total maintenance cost above X? (X = 100)
 SELECT e.Equipment_ID,
        e.Equipment_Name,
        SUM(m.Cost) AS Total_Cost
 FROM   dbo.EQUIPMENT e
 JOIN   dbo.MAINTENANCE_LOG m ON m.Equipment_ID = e.Equipment_ID
 GROUP BY e.Equipment_ID, e.Equipment_Name
-HAVING SUM(m.Cost) > 200      -- X
+HAVING SUM(m.Cost) > 100      -- X
 ORDER BY Total_Cost DESC;
 GO
 

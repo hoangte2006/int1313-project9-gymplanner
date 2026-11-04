@@ -1,152 +1,338 @@
 /* =====================================================================
    Gym Membership & Personal Training Planner  -  Team Dong Vui (#9)
    INT1313 - Database Basics
-   Phase 3 - Script 02: triggers for the business rules
+   Script 02 (DESIGN B): triggers for the business rules
+   Target: Microsoft SQL Server 2016 SP1+ (T-SQL), run in SSMS
+   Database: GymPlanner_dev
 
-   Run order: 01_create_tables.sql -> 03_sample_data.sql -> 02_triggers.sql
+   Authors:
+   - Nguyen Luu Trieu Quang : BR-MEM triggers (part 1)
+   - Nguyen Van Hoang Te    : BR-SCH and BR-FAC triggers (part 2; the BR-SCH part
+                              was written for Tran Duc Phuong, absent on 04/11)
+
+   Run order: 01_create_tables.sql -> 04_sample_data.sql -> 02_triggers.sql
               -> 03_indexes.sql -> 05_trigger_tests.sql
 
    How every trigger below works
    - SQL Server has no BEFORE trigger. These are AFTER triggers: the row is
      written first, then the trigger checks the rule. If the rule is broken,
      the trigger undoes the whole statement (ROLLBACK) and raises an error
-     with THROW (error numbers 50001 and up).
+     with THROW.
    - "inserted" is a temporary table holding the new version of the rows
      being inserted or updated. A trigger fires once per statement, so it
      checks all affected rows at once.
+   - Error numbers: 50001 to 50029 (50001-50004 are Quang's, 50005 is the
+     PT membership check, 50006 is free).
 
-   Rule -> trigger map
-   BR-MEM-01  trg_MEMBER_Disjoint, trg_DAILY_PASS_Disjoint
-   BR-MEM-03  trg_MEMBERSHIP_PhotoRequired, trg_CLASS_REG_PhotoRequired,
-              trg_PT_BOOKING_PhotoRequired
-   BR-MEM-07  trg_BILLING_MembershipOwner   (Visitor_ID matches the membership)
+   Rule -> trigger map (24 triggers)
+   BR-MEM-01  Optional Photo; no photo-required trigger.
+   BR-MEM-06  trg_MEMBERSHIP_NoActiveOverlap                          (50001)
+   BR-MEM-08  trg_TICKET_NoActiveMembership                           (50002)
+              trg_MEMBERSHIP_NoOverlappingTicket                      (50003)
+              trg_MEMBER_Phone_NoAccessOverlap                        (50004)
+   BR-MEM-09/10/11/12  CHECK constraints, filtered UNIQUE indexes and
+              ON DELETE NO ACTION (script 01), not triggers.
    BR-SCH-01  trg_TRAINER_Disjoint, trg_RECEPTIONIST_Disjoint,
               trg_TRAINER_RoleMatch, trg_RECEPTIONIST_RoleMatch,
               trg_STAFF_RoleMatch
    BR-SCH-02  trg_CLASS_RoomCapacity, trg_SESSION_RoomCapacity,
               trg_ROOM_RoomCapacity, trg_CLASS_REG_SeatLimit
-   BR-SCH-03/04  trg_SESSION_NoOverlap,
-              trg_PT_BOOKING_RecheckOverlap
-   BR-SCH-05  trg_CLASS_REG_ActiveMembership
+              (a session with no room, Room_ID NULL, is skipped)
+   BR-SCH-03/04  trg_SESSION_NoOverlap, trg_PT_BOOKING_RecheckOverlap
+              (cancelled PT bookings and cancelled classes are ignored)
+   BR-SCH-05  trg_CLASS_REG_ActiveMembership, trg_PT_BOOKING_ActiveMembership
    BR-SCH-06  trg_CLASS_SessionType, trg_PT_BOOKING_SessionType,
               trg_SESSION_TypeLocked
+   BR-FAC-05  trg_MLOG_SignerRole
    BR-FAC-06  trg_SEU_EquipmentActive
    BR-FAC-09  trg_SEU_TimeCheck (a), trg_SESSION_ReservationsInside
    BR-FAC-10  trg_SEU_TimeCheck (b)
               (and the equipment check inside trg_PT_BOOKING_RecheckOverlap)
-   BR-FAC-05  trg_MLOG_SignerRole
-   BR-MEM-10  filtered unique index (script 03, not a trigger)
+   Known limit: restoring a cancelled CLASS (Status 'Cancelled' -> 'Scheduled')
+   is not re-checked for room/trainer/equipment overlap.
    ===================================================================== */
 
 USE GymPlanner_dev;
 GO
 
+/* #####################################################################
+   PART 1 - MEMBER & BILLING DOMAIN  (Nguyen Luu Trieu Quang)
+   ##################################################################### */
+
 /* =====================================================================
-   BR-MEM-01: a visitor is a MEMBER or a DAILY_PASS_TICKET holder, never both
+   BR-MEM-06: Single Active Membership
+
+   Rule:
+   A member may have multiple historical Membership records,
+   but two Active Memberships cannot have overlapping periods.
+
+   Date interval:
+   [Start_Date, End_Date)
+
+   Two intervals overlap when:
+   Start1 < End2 AND Start2 < End1
+
+   Examples:
+   Active [2026-11-01, 2026-12-01)
+   Active [2026-11-20, 2026-12-20)
+   -> REJECT
+
+   Active [2026-11-01, 2026-12-01)
+   Active [2026-12-01, 2027-01-01)
+   -> ACCEPT
    ===================================================================== */
-CREATE OR ALTER TRIGGER dbo.trg_MEMBER_Disjoint
-ON dbo.MEMBER
+
+CREATE OR ALTER TRIGGER dbo.trg_MEMBERSHIP_NoActiveOverlap
+ON dbo.MEMBERSHIP
 AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.DAILY_PASS_TICKET d ON d.Visitor_ID = i.Visitor_ID)
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted AS new_ms
+
+        JOIN dbo.MEMBER AS member_row
+            WITH (UPDLOCK, HOLDLOCK)
+            ON member_row.Member_ID = new_ms.Member_ID
+
+        JOIN dbo.MEMBERSHIP AS other_ms
+            WITH (UPDLOCK, HOLDLOCK)
+            ON other_ms.Member_ID = new_ms.Member_ID
+           AND other_ms.Membership_ID <> new_ms.Membership_ID
+
+        WHERE new_ms.Status = 'Active'
+          AND other_ms.Status = 'Active'
+
+          AND new_ms.Start_Date < other_ms.End_Date
+          AND other_ms.Start_Date < new_ms.End_Date
+    )
     BEGIN
         ROLLBACK TRANSACTION;
-        THROW 50001, 'BR-MEM-01: this visitor already holds a daily pass, so cannot also be a member.', 1;
+        THROW 50001,
+              'BR-MEM-06: overlapping active Membership.',
+              1;
     END
 END;
 GO
 
-CREATE OR ALTER TRIGGER dbo.trg_DAILY_PASS_Disjoint
+
+/* =====================================================================
+   BR-MEM-08 (Part 1):
+   Daily Pass Ticket must not overlap an Active Membership.
+
+   Rule:
+   A guest cannot purchase a Daily Pass Ticket on a date
+   already covered by an Active Membership for the same
+   identifiable person.
+
+   Identification:
+   DAILY_PASS_TICKET.Guest_Phone
+   = MEMBER.Phone_Number
+
+   Important:
+   End_Date is exclusive.
+
+   Correct condition:
+   Visit_Date >= Start_Date
+   AND Visit_Date < End_Date
+   ===================================================================== */
+
+CREATE OR ALTER TRIGGER dbo.trg_TICKET_NoActiveMembership
 ON dbo.DAILY_PASS_TICKET
 AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.MEMBER m ON m.Visitor_ID = i.Visitor_ID)
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted AS new_ticket
+
+        JOIN dbo.MEMBER AS member_row
+            WITH (UPDLOCK, HOLDLOCK)
+            ON member_row.Phone_Number = new_ticket.Guest_Phone
+
+        JOIN dbo.MEMBERSHIP AS ms
+            WITH (UPDLOCK, HOLDLOCK)
+            ON ms.Member_ID = member_row.Member_ID
+
+        WHERE ms.Status = 'Active'
+
+          AND new_ticket.Visit_Date >= ms.Start_Date
+          AND new_ticket.Visit_Date < ms.End_Date
+    )
     BEGIN
         ROLLBACK TRANSACTION;
-        THROW 50002, 'BR-MEM-01: this visitor is already a member, so cannot also hold a daily pass.', 1;
+        THROW 50002,
+              'BR-MEM-08: Daily Pass Ticket overlaps an active Membership.',
+              1;
     END
 END;
 GO
 
+
 /* =====================================================================
-   BR-MEM-03: a member needs a photo on file before buying a membership,
-   registering for a class, or booking a PT session
+   BR-MEM-08 (Part 2):
+   Active Membership must not overlap an existing Daily Pass.
+
+   Rule:
+   If a guest purchases a Daily Pass Ticket first,
+   a new Active Membership must start after the ticket
+   validity period ends.
+
+   Example:
+
+   Daily Pass Visit_Date = 2026-11-23
+
+   Membership:
+   Start_Date = 2026-11-23
+   -> REJECT
+
+   Membership:
+   Start_Date = 2026-11-24
+   -> ACCEPT (if no other rule is violated)
    ===================================================================== */
-CREATE OR ALTER TRIGGER dbo.trg_MEMBERSHIP_PhotoRequired
+
+CREATE OR ALTER TRIGGER dbo.trg_MEMBERSHIP_NoOverlappingTicket
 ON dbo.MEMBERSHIP
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.MEMBER m ON m.Visitor_ID = i.Visitor_ID
-               WHERE m.Photo IS NULL)
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 50003, 'BR-MEM-03: the member has no photo on file; a membership cannot be created yet.', 1;
-    END
-END;
-GO
-
-CREATE OR ALTER TRIGGER dbo.trg_CLASS_REG_PhotoRequired
-ON dbo.CLASS_REGISTRATION
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.MEMBER m ON m.Visitor_ID = i.Visitor_ID
-               WHERE m.Photo IS NULL)
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 50004, 'BR-MEM-03: the member has no photo on file; cannot register for a class yet.', 1;
-    END
-END;
-GO
-
-CREATE OR ALTER TRIGGER dbo.trg_PT_BOOKING_PhotoRequired
-ON dbo.PT_BOOKING
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.MEMBER m ON m.Visitor_ID = i.Visitor_ID
-               WHERE m.Photo IS NULL)
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 50005, 'BR-MEM-03: the member has no photo on file; cannot book a PT session yet.', 1;
-    END
-END;
-GO
-
-/* =====================================================================
-   BR-MEM-07: a bill that points to a membership must carry the Visitor_ID
-   of that membership's owner (BILLING_LOG.Visitor_ID is controlled
-   redundancy, see the normalization section)
-   ===================================================================== */
-CREATE OR ALTER TRIGGER dbo.trg_BILLING_MembershipOwner
-ON dbo.BILLING_LOG
 AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.MEMBERSHIP ms ON ms.Membership_ID = i.Membership_ID
-               WHERE i.Membership_ID IS NOT NULL
-                 AND ms.Visitor_ID <> i.Visitor_ID)
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted AS new_ms
+
+        JOIN dbo.MEMBER AS member_row
+            WITH (UPDLOCK, HOLDLOCK)
+            ON member_row.Member_ID = new_ms.Member_ID
+
+        JOIN dbo.DAILY_PASS_TICKET AS ticket_row
+            WITH (UPDLOCK, HOLDLOCK)
+            ON ticket_row.Guest_Phone = member_row.Phone_Number
+
+        WHERE new_ms.Status = 'Active'
+
+          AND ticket_row.Visit_Date >= new_ms.Start_Date
+          AND ticket_row.Visit_Date < new_ms.End_Date
+    )
     BEGIN
         ROLLBACK TRANSACTION;
-        THROW 50006, 'BR-MEM-07: BILLING_LOG.Visitor_ID must be the owner of the membership in Membership_ID.', 1;
+        THROW 50003,
+              'BR-MEM-08: active Membership overlaps an existing Daily Pass Ticket.',
+              1;
     END
 END;
 GO
+
+
+/* =====================================================================
+   BR-MEM-08 (Part 3):
+   Changing MEMBER.Phone_Number must not bypass BR-MEM-08.
+
+   Rule:
+   A member cannot change their phone number to a number
+   associated with a Daily Pass Ticket whose Visit_Date
+   overlaps an existing Active Membership period.
+
+   Example:
+   Member M001 has an Active Membership on 2026-11-23.
+
+   A Daily Pass Ticket already exists for phone 0901234567
+   on 2026-11-23.
+
+   Updating M001.Phone_Number to 0901234567
+   -> REJECT
+   ===================================================================== */
+
+CREATE OR ALTER TRIGGER dbo.trg_MEMBER_Phone_NoAccessOverlap
+ON dbo.MEMBER
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT UPDATE(Phone_Number)
+        RETURN;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted AS member_row
+
+        JOIN dbo.MEMBERSHIP AS ms
+            WITH (UPDLOCK, HOLDLOCK)
+            ON ms.Member_ID = member_row.Member_ID
+
+        JOIN dbo.DAILY_PASS_TICKET AS ticket_row
+            WITH (UPDLOCK, HOLDLOCK)
+            ON ticket_row.Guest_Phone = member_row.Phone_Number
+
+        WHERE ms.Status = 'Active'
+
+          AND ticket_row.Visit_Date >= ms.Start_Date
+          AND ticket_row.Visit_Date < ms.End_Date
+    )
+    BEGIN
+        ROLLBACK TRANSACTION;
+        THROW 50004,
+              'BR-MEM-08: member phone update creates an access overlap.',
+              1;
+    END
+END;
+GO
+
+/* =====================================================================
+   BILLING IMPLEMENTATION
+
+   BR-MEM-09:
+   Every BILLING_LOG must reference exactly one source:
+   either Membership_ID or Ticket_ID, never both.
+
+   Enforced by:
+   CK_BILL_Exclusive_Source in 01_create_tables.sql.
+
+   BR-MEM-10:
+   Each Membership and each Daily Pass Ticket must have
+   exactly one associated BILLING_LOG record.
+
+   Enforced partially by:
+   - UX_BILL_Membership_NotNull
+   - UX_BILL_Ticket_NotNull
+
+   These unique indexes prevent duplicate billing records.
+
+   To guarantee purchase + bill creation together, use
+   stored procedures with explicit transactions:
+
+   usp_PurchaseMembership
+   usp_PurchaseDailyPass
+
+   These procedures belong to a separate SQL script.
+
+   BR-MEM-11:
+   - Amount_Paid >= 0
+   - Billing_Status IN ('Pending','Paid','Failed')
+   - Paid requires Payment_Date
+   - Pending/Failed require NULL Payment_Date
+
+   Enforced by CHECK constraints in script 01.
+
+   BR-MEM-13:
+   Membership access requires:
+   - Status = 'Active'
+   - Start_Date <= Current_Date < End_Date
+   - Related Billing_Status = 'Paid'
+
+   This access validation belongs to application/procedure
+   logic, not an automatic billing trigger.
+   ===================================================================== */
+
+/* #####################################################################
+   PART 2 - TRAINING, SCHEDULING AND FACILITY DOMAIN  (Nguyen Van Hoang Te)
+   ##################################################################### */
 
 /* =====================================================================
    BR-SCH-01: a staff member is a TRAINER or a RECEPTIONIST, never both
@@ -345,7 +531,8 @@ BEGIN
         FROM inserted AS new_s                              -- the session just added or changed
         JOIN dbo.[SESSION] AS other_s                       -- every other session
              ON other_s.Session_ID <> new_s.Session_ID      -- not itself
-        WHERE other_s.Room_ID = new_s.Room_ID               -- same room
+        WHERE new_s.Room_ID IS NOT NULL                     -- a session with no room is not compared
+          AND other_s.Room_ID = new_s.Room_ID               -- same room
           AND new_s.Start_Time < other_s.End_Time           -- times overlap
           AND other_s.Start_Time < new_s.End_Time
           AND NOT EXISTS (SELECT 1 FROM dbo.PT_BOOKING b    -- new session is not a cancelled PT
@@ -354,6 +541,12 @@ BEGIN
           AND NOT EXISTS (SELECT 1 FROM dbo.PT_BOOKING b    -- other session is not a cancelled PT
                           WHERE b.Session_ID = other_s.Session_ID
                             AND b.Booking_Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c                 -- other session is not a cancelled class
+                          WHERE c.Session_ID = other_s.Session_ID
+                            AND c.Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c                 -- new session is not a cancelled class
+                          WHERE c.Session_ID = new_s.Session_ID
+                            AND c.Status = 'Cancelled')
     )
     BEGIN
         ROLLBACK TRANSACTION;
@@ -375,6 +568,12 @@ BEGIN
           AND NOT EXISTS (SELECT 1 FROM dbo.PT_BOOKING b
                           WHERE b.Session_ID = other_s.Session_ID
                             AND b.Booking_Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c                 -- new session is not a cancelled class
+                          WHERE c.Session_ID = new_s.Session_ID
+                            AND c.Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c                 -- other session is not a cancelled class
+                          WHERE c.Session_ID = other_s.Session_ID
+                            AND c.Status = 'Cancelled')
     )
     BEGIN
         ROLLBACK TRANSACTION;
@@ -415,6 +614,9 @@ BEGIN
           AND NOT EXISTS (SELECT 1 FROM dbo.PT_BOOKING b            -- the other session is not a cancelled PT
                           WHERE b.Session_ID = other_s.Session_ID
                             AND b.Booking_Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c                 -- the other session is not a cancelled class
+                          WHERE c.Session_ID = other_s.Session_ID
+                            AND c.Status = 'Cancelled')
     )
     BEGIN
         ROLLBACK TRANSACTION;
@@ -437,6 +639,9 @@ BEGIN
           AND NOT EXISTS (SELECT 1 FROM dbo.PT_BOOKING b
                           WHERE b.Session_ID = other_s.Session_ID
                             AND b.Booking_Status = 'Cancelled')
+          AND NOT EXISTS (SELECT 1 FROM dbo.CLASS c
+                          WHERE c.Session_ID = other_s.Session_ID
+                            AND c.Status = 'Cancelled')
     )
     BEGIN
         ROLLBACK TRANSACTION;
@@ -469,7 +674,7 @@ END;
 GO
 
 /* =====================================================================
-   BR-SCH-05: only members with an active membership can register for a class.
+   BR-SCH-05: only members with an active membership can register for a class or book PT.
    Active = Status 'Active' and today between Start_Date and End_Date.
    Reads as: reject if some registered member has NO such active membership.
    ===================================================================== */
@@ -481,12 +686,31 @@ BEGIN
     SET NOCOUNT ON;
     IF EXISTS (SELECT 1 FROM inserted AS new_reg
                WHERE NOT EXISTS (SELECT 1 FROM dbo.MEMBERSHIP AS ms
-                                 WHERE ms.Visitor_ID = new_reg.Visitor_ID
+                                 WHERE ms.Member_ID = new_reg.Member_ID
                                    AND ms.Status = 'Active'
                                    AND CAST(GETDATE() AS DATE) BETWEEN ms.Start_Date AND ms.End_Date))
     BEGIN
         ROLLBACK TRANSACTION;
         THROW 50017, 'BR-SCH-05: the member has no active membership, so cannot register for a class.', 1;
+    END
+END;
+GO
+
+-- BR-SCH-05 (second part): the same check for a PT booking.
+CREATE OR ALTER TRIGGER dbo.trg_PT_BOOKING_ActiveMembership
+ON dbo.PT_BOOKING
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM inserted AS new_pt
+               WHERE NOT EXISTS (SELECT 1 FROM dbo.MEMBERSHIP AS ms
+                                 WHERE ms.Member_ID = new_pt.Member_ID
+                                   AND ms.Status = 'Active'
+                                   AND CAST(GETDATE() AS DATE) BETWEEN ms.Start_Date AND ms.End_Date))
+    BEGIN
+        ROLLBACK TRANSACTION;
+        THROW 50005, 'BR-SCH-05: the member has no active membership, so cannot book a PT session.', 1;
     END
 END;
 GO
@@ -666,7 +890,7 @@ END;
 GO
 
 -- List the triggers that were created
-SELECT t.name AS Trigger_Name, OBJECT_NAME(t.parent_id) AS On_Table
+SELECT t.name AS Trigger_Name, OBJECT_NAME(t.parent_id) AS On_Table, t.is_disabled AS Is_Disabled
 FROM sys.triggers t
 WHERE t.parent_class = 1
 ORDER BY OBJECT_NAME(t.parent_id), t.name;
