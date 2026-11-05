@@ -42,8 +42,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -60,8 +60,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -78,8 +78,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -96,8 +96,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -114,8 +114,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -132,8 +132,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -150,8 +150,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -168,8 +168,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -186,30 +186,30 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
 INSERT INTO @results VALUES (9, 'gym_reception', 'Delete from MEMBERSHIP', 'denied', @actual);
 
-/* T10: gym_reception - Record a payment: update Billing_Status (expect: allowed) */
+/* T10: gym_reception - Record a payment: Billing_Status and Payment_Date (expect: allowed) */
 SET @actual = 'allowed';
 BEGIN TRY
     BEGIN TRAN;
     EXECUTE AS USER = 'gym_reception';
-    UPDATE dbo.BILLING_LOG SET Billing_Status = 'Paid' WHERE Bill_ID = 3;
+    UPDATE dbo.BILLING_LOG SET Billing_Status = 'Paid', Payment_Date = CAST(GETDATE() AS DATE) WHERE Bill_ID = 3;
     REVERT;
     ROLLBACK;
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
-INSERT INTO @results VALUES (10, 'gym_reception', 'Record a payment: update Billing_Status', 'allowed', @actual);
+INSERT INTO @results VALUES (10, 'gym_reception', 'Record a payment: Billing_Status and Payment_Date', 'allowed', @actual);
 
 /* T11: gym_reception - Change the Due_Date of a bill (expect: denied) */
 SET @actual = 'allowed';
@@ -222,8 +222,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -240,8 +240,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -258,8 +258,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -276,8 +276,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -294,8 +294,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -312,8 +312,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -330,8 +330,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -348,8 +348,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
@@ -366,8 +366,8 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @err = ERROR_NUMBER();
-    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     IF @@TRANCOUNT > 0 ROLLBACK;
+    IF USER_NAME() LIKE 'gym[_]%' REVERT;
     SET @actual = CASE WHEN @err IN (229, 230, 262) THEN 'denied'
                        ELSE 'error ' + CAST(@err AS VARCHAR(10)) END;
 END CATCH;
