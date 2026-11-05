@@ -10,7 +10,7 @@
 
    T01-T22: must be BLOCKED. The Messages tab prints
             'Tnn PASS - blocked, error <number>' when the expected error comes.
-   A01-A06: must be ACCEPTED. They print 'Ann PASS - accepted'.
+   A01-A10: must be ACCEPTED. They print 'Ann PASS - accepted'.
    Anything else prints FAIL with the reason.
    Take the screenshot from the Messages tab.
    ===================================================================== */
@@ -477,6 +477,66 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   PRINT 'A06 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A07: BR-SCH-01: a new staff member with Role = Trainer becomes a TRAINER  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.STAFF (Full_Name,Phone,Role,Hire_Date,Salary) VALUES ('Test Trainer','0909999991','Trainer','2026-01-01',700.00);
+  INSERT INTO dbo.TRAINER (Staff_ID,Specialty,Certification) VALUES (SCOPE_IDENTITY(),'Test',NULL);
+  PRINT 'A07 PASS - accepted: BR-SCH-01: a new staff member with Role = Trainer becomes a TRAINER';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A07 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A08: BR-SCH-02: class Max_Capacity equal to the room Capacity (room 1, 20)  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.[SESSION] (Session_Type,Room_ID,Trainer_ID,Start_Time,End_Time) VALUES ('Class',1,2,DATEADD(HOUR,6,DATEADD(DAY,30,@T)),DATEADD(HOUR,7,DATEADD(DAY,30,@T)));
+  INSERT INTO dbo.CLASS (Session_ID,Class_Name,Max_Capacity,Status) VALUES (SCOPE_IDENTITY(),'Boundary class',20,'Scheduled');
+  PRINT 'A08 PASS - accepted: BR-SCH-02: class Max_Capacity equal to the room Capacity (room 1, 20)';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A08 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A09: BR-SCH-04: back-to-back sessions of the same trainer (touching, no overlap)  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.[SESSION] (Session_Type,Room_ID,Trainer_ID,Start_Time,End_Time) VALUES ('Class',1,1,DATEADD(HOUR,9,DATEADD(DAY,40,@T)),DATEADD(HOUR,10,DATEADD(DAY,40,@T)));
+  INSERT INTO dbo.[SESSION] (Session_Type,Room_ID,Trainer_ID,Start_Time,End_Time) VALUES ('Class',2,1,DATEADD(HOUR,10,DATEADD(DAY,40,@T)),DATEADD(HOUR,11,DATEADD(DAY,40,@T)));
+  PRINT 'A09 PASS - accepted: BR-SCH-04: back-to-back sessions of the same trainer (touching, no overlap)';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A09 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A10: BR-SCH-06: CLASS attached to a Class session  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.[SESSION] (Session_Type,Room_ID,Trainer_ID,Start_Time,End_Time) VALUES ('Class',1,2,DATEADD(HOUR,15,DATEADD(DAY,35,@T)),DATEADD(HOUR,16,DATEADD(DAY,35,@T)));
+  INSERT INTO dbo.CLASS (Session_ID,Class_Name,Max_Capacity,Status) VALUES (SCOPE_IDENTITY(),'Right type',10,'Scheduled');
+  PRINT 'A10 PASS - accepted: BR-SCH-06: CLASS attached to a Class session';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A10 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
   IF @@TRANCOUNT > 0 ROLLBACK;
 END CATCH;
 GO
