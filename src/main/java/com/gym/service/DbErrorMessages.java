@@ -1,0 +1,65 @@
+package com.gym.service;
+
+import java.sql.SQLException;
+
+/**
+ * Doi loi cua SQL Server (trigger, CHECK, FK...) thanh cau de hieu cho nguoi dung.
+ * Trigger trong 02_triggers.sql dung THROW voi so loi 50001 tro len va ma luat "BR-...".
+ * Loi la dang khac thi tra ve dung thong bao goc de van thay duoc nguyen nhan.
+ */
+public final class DbErrorMessages {
+
+    private DbErrorMessages() { }
+
+    public static String explain(Throwable error) {
+        if (error instanceof IllegalArgumentException) {
+            return error.getMessage();   // loi nhap lieu do Service tu kiem tra
+        }
+        if (error instanceof SQLException) {
+            return explain((SQLException) error);
+        }
+        return "Unexpected error: " + error.getMessage();
+    }
+
+    private static String explain(SQLException e) {
+        String raw = String.valueOf(e.getMessage());
+        switch (e.getErrorCode()) {
+            case 50022:   // BR-FAC-05
+                return "This maintenance log was NOT saved.\n"
+                     + "A maintenance log must be signed off by a Receptionist or a Manager.\n"
+                     + "Please choose a different person in \"Signed off by\".";
+            case 50021:   // BR-FAC-06
+                return "This machine cannot be reserved for a session.\n"
+                     + "Only machines with status Active can be reserved; this one is Broken or Under Maintenance.";
+            case 50023:   // BR-FAC-09
+            case 50025:
+                return "The reservation must lie inside the time of its session.";
+            case 50024:   // BR-FAC-10
+                return "This machine is already reserved by another session during this time.";
+            case 547:     // CHECK / FOREIGN KEY
+                if (raw.contains("CK_MLOG_Cost")) {
+                    return "The cost cannot be negative.";
+                }
+                if (raw.contains("CK_EQUIP_Status")) {
+                    return "Invalid status. Choose Active, Under Maintenance or Broken.";
+                }
+                if (raw.contains("FK_MLOG_STAFF")) {
+                    return "The staff member who signs the log does not exist.";
+                }
+                if (raw.contains("FK_MLOG_EQUIPMENT")) {
+                    return "This machine no longer exists. Press Refresh and try again.";
+                }
+                break;
+            case 2627:    // trung khoa chinh
+            case 2601:
+                return "This record already exists (duplicate key). Press Refresh and try again.";
+            default:
+                break;
+        }
+        if (raw.contains("BR-")) {
+            // luat nghiep vu khac cua nhom, chua co cau rieng: hien nguyen cau cua trigger
+            return "A business rule was violated:\n" + raw;
+        }
+        return "Database error (" + e.getErrorCode() + "):\n" + raw;
+    }
+}

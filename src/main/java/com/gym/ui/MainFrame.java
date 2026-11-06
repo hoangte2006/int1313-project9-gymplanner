@@ -15,12 +15,13 @@ public class MainFrame extends JFrame {
         super("Gym Membership & Personal Training Planner");
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Equipment", new EquipmentPanel(new EquipmentService()));   // Te
-        // tabs.addTab("Members", ...);     // Quang: them tab o day
+        tabs.addTab("Members", new MemberPanel());                       // Quang
+        tabs.addTab("Membership & Billing", new QuangSalesPanel());      // Quang
         // tabs.addTab("Classes & PT", ...); // Phuong: them tab o day
         add(tabs);
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(760, 460);
+        setSize(900, 520);
         setLocationRelativeTo(null);
     }
 }

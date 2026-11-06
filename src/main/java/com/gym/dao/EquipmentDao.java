@@ -3,7 +3,9 @@ package com.gym.dao;
 import com.gym.db.DbConnection;
 import com.gym.model.Equipment;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -33,6 +35,40 @@ public class EquipmentDao {
             }
         }
         return list;
+    }
+
+    /** Doi trang thai may. Tra ve so dong bi doi (0 neu khong co thiet bi nay). */
+    public int updateStatus(int equipmentId, String newStatus) throws SQLException {
+        String sql = "UPDATE dbo.EQUIPMENT SET Operational_Status = ? WHERE Equipment_ID = ?";
+        try (Connection c = DbConnection.get();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, equipmentId);
+            return ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Them mot log bao tri. Log_no khong tu tang (khoa chinh la Equipment_ID + Log_no),
+     * nen lay so lon nhat hien co cua may nay + 1 ngay trong cau INSERT (khoa dong de
+     * hai nguoi khong lay trung so). Trigger trg_MLOG_SignerRole (BR-FAC-05) co the tu choi.
+     */
+    public int addMaintenanceLog(int equipmentId, LocalDate date, BigDecimal cost,
+                                 String description, int loggedBy) throws SQLException {
+        String sql = "INSERT INTO dbo.MAINTENANCE_LOG "
+            + "(Equipment_ID, Log_no, Maintenance_Date, Cost, Description, Logged_By) "
+            + "SELECT ?, ISNULL(MAX(Log_no), 0) + 1, ?, ?, ?, ? "
+            + "FROM dbo.MAINTENANCE_LOG WITH (UPDLOCK, HOLDLOCK) WHERE Equipment_ID = ?";
+        try (Connection c = DbConnection.get();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, equipmentId);
+            ps.setObject(2, date);
+            ps.setBigDecimal(3, cost);
+            ps.setString(4, description);
+            ps.setInt(5, loggedBy);
+            ps.setInt(6, equipmentId);
+            return ps.executeUpdate();
+        }
     }
 
     /** Main thu: in danh sach thiet bi ra man hinh. */
