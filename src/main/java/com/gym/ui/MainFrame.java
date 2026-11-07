@@ -12,12 +12,14 @@ public class MainFrame extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
 
         tabs.addTab("Equipment", new EquipmentPanel(new EquipmentService()));
-        tabs.addTab("Classes & PT", new ClassPtPanel());
+        tabs.addTab("Members", new MemberPanel());                       // Quang
+        tabs.addTab("Membership & Billing", new QuangSalesPanel());      // Quang
+        tabs.addTab("Classes & PT", new ClassPtPanel());                 // Phuong
 
         add(tabs);
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(760, 460);
+        setSize(1000, 540);
         setLocationRelativeTo(null);
     }
 }

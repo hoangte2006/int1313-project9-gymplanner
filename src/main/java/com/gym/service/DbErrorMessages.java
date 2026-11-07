@@ -18,7 +18,8 @@ public final class DbErrorMessages {
         if (error instanceof SQLException) {
             return explain((SQLException) error);
         }
-        return "Unexpected error: " + error.getMessage();
+        // loi da duoc lop DAO/Service viet san thanh cau cho nguoi dung
+        return error.getMessage() != null ? error.getMessage() : "Unexpected error: " + error;
     }
 
     private static String explain(SQLException e) {
@@ -28,6 +29,21 @@ public final class DbErrorMessages {
                 return "This maintenance log was NOT saved.\n"
                      + "A maintenance log must be signed off by a Receptionist or a Manager.\n"
                      + "Please choose a different person in \"Signed off by\".";
+            case 50005:   // BR-SCH-05 (PT)
+            case 50017:   // BR-SCH-05 (class)
+                return "This member has no active membership, so they cannot book a PT session or register for a class.";
+            case 50012:   // BR-SCH-02
+                return "This class is full. Choose another class.";
+            case 50009:
+            case 50010:
+            case 50011:
+                return "The room is too small for this class capacity (BR-SCH-02).";
+            case 50013:   // BR-SCH-03
+            case 50015:
+                return "The room is already used during this time. Choose another room or another time.";
+            case 50014:   // BR-SCH-04
+            case 50016:
+                return "The trainer is already busy during this time. Choose another trainer or another time.";
             case 50021:   // BR-FAC-06
                 return "This machine cannot be reserved for a session.\n"
                      + "Only machines with status Active can be reserved; this one is Broken or Under Maintenance.";
