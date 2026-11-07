@@ -8,9 +8,9 @@
    Run AFTER 04 (sample data) and 02 (triggers). Every test runs in its own
    transaction and is rolled back, so the data is never changed.
 
-   T01-T22: must be BLOCKED. The Messages tab prints
+   T01-T23: must be BLOCKED. The Messages tab prints
             'Tnn PASS - blocked, error <number>' when the expected error comes.
-   A01-A10: must be ACCEPTED. They print 'Ann PASS - accepted'.
+   A01-A14: must be ACCEPTED. They print 'Ann PASS - accepted'.
    Anything else prints FAIL with the reason.
    Take the screenshot from the Messages tab.
    ===================================================================== */
@@ -396,6 +396,23 @@ BEGIN CATCH
 END CATCH;
 GO
 
+-- T23: BR-FAC-10: barbell set (equipment 6) reserved twice at the same time  (expected error 50024)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.SESSION_EQUIPMENT_USAGE (Equipment_ID,Session_ID,Reserved_From,Reserved_To) VALUES (6,4,DATEADD(HOUR,9,DATEADD(DAY,5,@T)),DATEADD(HOUR,10,DATEADD(DAY,5,@T)));
+  PRINT 'T23 FAIL - not blocked: BR-FAC-10: barbell set (equipment 6) reserved twice at the same time';
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END TRY
+BEGIN CATCH
+  IF ERROR_NUMBER() = 50024
+    PRINT 'T23 PASS - blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  ELSE
+    PRINT 'T23 CHECK - blocked by error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ' (expected 50024): ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
 -- A01: Member 6 buys a first Active membership (no overlap)  (must be accepted)
 BEGIN TRY
   BEGIN TRAN;
@@ -537,6 +554,67 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   PRINT 'A10 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A11: BR-FAC-06 and BR-FAC-09: Active treadmill (equipment 1) reserved inside PT session 4  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.SESSION_EQUIPMENT_USAGE (Equipment_ID,Session_ID,Reserved_From,Reserved_To) VALUES (1,4,DATEADD(HOUR,9,DATEADD(DAY,5,@T)),DATEADD(HOUR,10,DATEADD(DAY,5,@T)));
+  PRINT 'A11 PASS - accepted: BR-FAC-06 and BR-FAC-09: Active treadmill (equipment 1) reserved inside PT session 4';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A11 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A12: BR-FAC-05: maintenance log signed by a Receptionist (staff 3)  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.MAINTENANCE_LOG (Equipment_ID,Log_no,Maintenance_Date,Cost,Description,Logged_By) VALUES (2,1,@T,10.00,'Test',3);
+  PRINT 'A12 PASS - accepted: BR-FAC-05: maintenance log signed by a Receptionist (staff 3)';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A12 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A13: BR-FAC-05: maintenance log signed by a Manager (staff 5)  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  INSERT INTO dbo.MAINTENANCE_LOG (Equipment_ID,Log_no,Maintenance_Date,Cost,Description,Logged_By) VALUES (2,1,@T,10.00,'Test',5);
+  PRINT 'A13 PASS - accepted: BR-FAC-05: maintenance log signed by a Manager (staff 5)';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A13 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+  IF @@TRANCOUNT > 0 ROLLBACK;
+END CATCH;
+GO
+
+-- A14: BR-FAC-10: a cancelled class (session 10) does not hold its equipment for a new session  (must be accepted)
+BEGIN TRY
+  BEGIN TRAN;
+  DECLARE @T DATETIME = CAST(CAST(GETDATE() AS DATE) AS DATETIME);
+  DECLARE @New INT;
+  INSERT INTO dbo.SESSION_EQUIPMENT_USAGE (Equipment_ID,Session_ID,Reserved_From,Reserved_To) VALUES (1,10,DATEADD(HOUR,18,DATEADD(DAY,8,@T)),DATEADD(HOUR,19,DATEADD(DAY,8,@T)));
+  INSERT INTO dbo.[SESSION] (Session_Type,Room_ID,Trainer_ID,Start_Time,End_Time) VALUES ('Class',1,1,DATEADD(HOUR,18,DATEADD(DAY,8,@T)),DATEADD(HOUR,19,DATEADD(DAY,8,@T)));
+  SET @New = SCOPE_IDENTITY();
+  INSERT INTO dbo.CLASS (Session_ID,Class_Name,Max_Capacity,Status) VALUES (@New,'Equipment test',10,'Scheduled');
+  INSERT INTO dbo.SESSION_EQUIPMENT_USAGE (Equipment_ID,Session_ID,Reserved_From,Reserved_To) VALUES (1,@New,DATEADD(HOUR,18,DATEADD(DAY,8,@T)),DATEADD(HOUR,19,DATEADD(DAY,8,@T)));
+  PRINT 'A14 PASS - accepted: BR-FAC-10: a cancelled class (session 10) does not hold its equipment for a new session';
+  ROLLBACK;
+END TRY
+BEGIN CATCH
+  PRINT 'A14 FAIL - wrongly blocked, error ' + CAST(ERROR_NUMBER() AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
   IF @@TRANCOUNT > 0 ROLLBACK;
 END CATCH;
 GO

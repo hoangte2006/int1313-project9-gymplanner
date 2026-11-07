@@ -15,9 +15,9 @@ public class ConnectionTest {
             System.out.println("Ket noi thanh cong den: " + c.getCatalog());
 
             try (ResultSet rs = st.executeQuery(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")) {
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'sysdiagrams'")) {
                 rs.next();
-                System.out.println("So bang trong database: " + rs.getInt(1) + " (ky vong 17)");
+                System.out.println("So bang trong database: " + rs.getInt(1) + " (ky vong 16)");
             }
         } catch (SQLException e) {
             System.out.println("KET NOI THAT BAI: " + e.getMessage());
