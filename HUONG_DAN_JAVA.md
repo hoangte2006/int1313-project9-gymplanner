@@ -11,7 +11,7 @@
 4. Cửa sổ chính hiện ra, tab **Equipment** liệt kê 10 thiết bị. Có lọc theo trạng thái và nút Refresh.
 
 ## 2. Cấu trúc 4 lớp (mỗi lớp một việc)
-
+ 
 | Lớp | Thư mục | Việc của lớp | Mẫu (phần Te) |
 |---|---|---|---|
 | Giao diện | `ui/` | Chỉ hiển thị, nhận thao tác. Không viết SQL. | `EquipmentPanel` |
