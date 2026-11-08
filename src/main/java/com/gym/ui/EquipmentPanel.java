@@ -1,6 +1,7 @@
 package com.gym.ui;
 
 import com.gym.model.Equipment;
+import com.gym.model.SessionSlot;
 import com.gym.model.Staff;
 import com.gym.service.DbErrorMessages;
 import com.gym.service.EquipmentService;
@@ -25,6 +26,8 @@ import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +48,7 @@ public class EquipmentPanel extends JPanel {
     private final JComboBox<String> statusBox = new JComboBox<>(
         new String[] {"All", "Active", "Under Maintenance", "Broken"});
     private final JLabel summary = new JLabel(" ");
+    private static final DateTimeFormatter MINUTES = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private final JTable table = new JTable(model);
 
     /** Mot thao tac ghi CSDL (chay trong SwingWorker). */
@@ -68,14 +72,14 @@ public class EquipmentPanel extends JPanel {
         top.add(statusBox);
         top.add(refresh);
 
-        JButton changeStatus = new JButton("Change status...");
-        changeStatus.setToolTipText("Select a machine, then report it broken, under maintenance, or active again");
-        changeStatus.addActionListener(e -> changeStatus());
-        JButton addLog = new JButton("Add maintenance log...");
-        addLog.setToolTipText("Select a machine, then record a maintenance job");
-        addLog.addActionListener(e -> addMaintenanceLog());
-        top.add(changeStatus);
-        top.add(addLog);
+        JButton update = new JButton("Status & maintenance log...");
+        update.setToolTipText("Select a machine: send it to maintenance, report it broken, record work done, or set it Active again");
+        update.addActionListener(e -> updateMachine());
+        JButton reserve = new JButton("Reserve for session...");
+        reserve.setToolTipText("Select a machine, then reserve it for a class or PT session");
+        reserve.addActionListener(e -> reserveForSession());
+        top.add(update);
+        top.add(reserve);
 
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT));
         bottom.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
@@ -124,43 +128,25 @@ public class EquipmentPanel extends JPanel {
         return table.convertRowIndexToModel(viewRow);   // bang co the dang duoc sap xep
     }
 
-    /** Bao hong / doi trang thai may dang chon. */
-    private void changeStatus() {
+    /**
+     * Mot nut cho moi viec ve tinh trang may: doi trang thai va/hoac ghi log bao tri.
+     * Danh sach nguoi ky doc tu CSDL truoc khi hien hop thoai.
+     */
+    private void updateMachine() {
         int row = selectedModelRow();
         if (row < 0) {
             return;
         }
         int id = (Integer) model.getValueAt(row, 0);
         String name = String.valueOf(model.getValueAt(row, 1));
-        JComboBox<String> box = new JComboBox<>(EquipmentService.STATUSES.toArray(new String[0]));
-        box.setSelectedItem(model.getValueAt(row, STATUS_COL));
-
-        int ok = JOptionPane.showConfirmDialog(this,
-            new Object[] {"Machine: " + name, "New status:", box},
-            "Change status", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (ok != JOptionPane.OK_OPTION) {
-            return;
-        }
-        String newStatus = (String) box.getSelectedItem();
-        runWrite(() -> service.changeStatus(id, newStatus),
-                 name + " is now \"" + newStatus + "\".");
-    }
-
-    /** Them log bao tri cho may dang chon. Danh sach nguoi ky doc tu CSDL truoc khi hien hop thoai. */
-    private void addMaintenanceLog() {
-        int row = selectedModelRow();
-        if (row < 0) {
-            return;
-        }
-        int id = (Integer) model.getValueAt(row, 0);
-        String name = String.valueOf(model.getValueAt(row, 1));
+        String current = String.valueOf(model.getValueAt(row, STATUS_COL));
         new SwingWorker<List<Staff>, Void>() {
             @Override protected List<Staff> doInBackground() throws Exception {
                 return service.getSigners();
             }
             @Override protected void done() {
                 try {
-                    showLogDialog(id, name, get());
+                    showUpdateDialog(id, name, current, get());
                 } catch (Exception ex) {
                     showError(ex);
                 }
@@ -168,30 +154,142 @@ public class EquipmentPanel extends JPanel {
         }.execute();
     }
 
-    private void showLogDialog(int id, String name, List<Staff> signers) {
+    private void showUpdateDialog(int id, String name, String current, List<Staff> signers) {
+        JComboBox<String> statusChoice = new JComboBox<>(EquipmentService.STATUSES.toArray(new String[0]));
+        statusChoice.setSelectedItem(current);
+        JComboBox<Staff> signerBox = new JComboBox<>(signers.toArray(new Staff[0]));
         JTextField dateField = new JTextField(LocalDate.now().toString(), 12);
         JTextField costField = new JTextField("0", 12);
         JTextField descField = new JTextField(28);
-        JComboBox<Staff> signerBox = new JComboBox<>(signers.toArray(new Staff[0]));
+        JLabel hint = new JLabel(" ");
+        hint.setForeground(Color.DARK_GRAY);
+
+        // Chuyen sang Under Maintenance / Broken: bat buoc co nguoi chiu trach nhiem va mo ta.
+        // Giu nguyen hoac ve Active: mo ta de trong thi chi doi trang thai, khong ghi log.
+        String[] lastDefault = {""};
+        Runnable refresh = () -> {
+            String chosen = (String) statusChoice.getSelectedItem();
+            boolean changes = !chosen.equals(current);
+            boolean required = changes && !"Active".equals(chosen);
+            hint.setText(required
+                ? "Required: who is responsible and a description (saved as a maintenance log)."
+                : "Optional: fill Description only to record work that was done (with its cost).");
+            String suggestion = !changes ? ""
+                              : "Broken".equals(chosen) ? "Reported broken"
+                              : "Under Maintenance".equals(chosen) ? "Sent for maintenance" : "";
+            if (descField.getText().isEmpty() || descField.getText().equals(lastDefault[0])) {
+                descField.setText(suggestion);
+            }
+            lastDefault[0] = suggestion;
+        };
+        statusChoice.addActionListener(e -> refresh.run());
+        refresh.run();
 
         JPanel form = new JPanel(new GridLayout(0, 2, 6, 6));
-        form.add(new JLabel("Date (yyyy-MM-dd):")); form.add(dateField);
-        form.add(new JLabel("Cost:"));              form.add(costField);
-        form.add(new JLabel("Description:"));       form.add(descField);
-        form.add(new JLabel("Signed off by:"));     form.add(signerBox);
+        form.add(new JLabel("New status:"));          form.add(statusChoice);
+        form.add(new JLabel("Date (yyyy-MM-dd):"));   form.add(dateField);
+        form.add(new JLabel("Signed off by:"));       form.add(signerBox);
+        form.add(new JLabel("Description:"));         form.add(descField);
+        form.add(new JLabel("Cost:"));                form.add(costField);
 
         int ok = JOptionPane.showConfirmDialog(this,
-            new Object[] {"Machine: " + name, form},
-            "Add maintenance log", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            new Object[] {"Machine: " + name + "  (now: " + current + ")", form, hint},
+            "Status & maintenance log", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (ok != JOptionPane.OK_OPTION) {
             return;
         }
+        String newStatus = (String) statusChoice.getSelectedItem();
         LocalDate date = parseDate(dateField.getText());
         BigDecimal cost = parseCost(costField.getText());
         String description = descField.getText();
         Staff signer = (Staff) signerBox.getSelectedItem();
-        runWrite(() -> service.addMaintenanceLog(id, date, cost, description, signer),
-                 "Maintenance log saved for " + name + ".");
+        boolean hasDescription = !description.trim().isEmpty();
+        String message = name + ": "
+            + (newStatus.equals(current) ? "status unchanged" : "status is now " + newStatus)
+            + (hasDescription || (!newStatus.equals(current) && !"Active".equals(newStatus))
+                ? ". Maintenance log saved, signed off by " + signer + "." : ".");
+        runWrite(() -> service.updateMachine(id, current, newStatus, date, cost, description, signer), message);
+    }
+
+    /** Dat may dang chon cho mot buoi tap. Danh sach buoi tap doc tu CSDL truoc khi hien hop thoai. */
+    private void reserveForSession() {
+        int row = selectedModelRow();
+        if (row < 0) {
+            return;
+        }
+        int id = (Integer) model.getValueAt(row, 0);
+        String name = String.valueOf(model.getValueAt(row, 1));
+        String status = String.valueOf(model.getValueAt(row, STATUS_COL));
+        // bao ngay khi bam nut, khong bat nguoi dung chon buoi roi moi bi tu choi
+        // (trigger BR-FAC-06 trong CSDL van la lop chan chinh thuc, day chi de tien cho nguoi dung)
+        if (!"Active".equals(status)) {
+            JOptionPane.showMessageDialog(this,
+                name + " is \"" + status + "\" and cannot be reserved.\n"
+                + "Only machines with status Active can be reserved for a session.\n"
+                + "Use \"Change status...\" to set it back to Active when it is repaired.",
+                "Machine not available", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new SwingWorker<List<SessionSlot>, Void>() {
+            @Override protected List<SessionSlot> doInBackground() throws Exception {
+                return service.getReservableSessions();
+            }
+            @Override protected void done() {
+                try {
+                    showReserveDialog(id, name, get());
+                } catch (Exception ex) {
+                    showError(ex);
+                }
+            }
+        }.execute();
+    }
+
+    private void showReserveDialog(int id, String name, List<SessionSlot> sessions) {
+        if (sessions.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "There is no upcoming session to reserve a machine for.",
+                "No sessions", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        JComboBox<SessionSlot> sessionBox = new JComboBox<>(sessions.toArray(new SessionSlot[0]));
+        sessionBox.setPrototypeDisplayValue(sessions.get(0));
+        JTextField fromField = new JTextField(16);
+        JTextField toField = new JTextField(16);
+        // gio mac dinh = gio cua buoi tap dang chon; nguoi dung co the sua (de thu luat BR-FAC-09)
+        Runnable fillTimes = () -> {
+            SessionSlot picked = (SessionSlot) sessionBox.getSelectedItem();
+            if (picked != null) {
+                fromField.setText(picked.getStart().format(MINUTES));
+                toField.setText(picked.getEnd().format(MINUTES));
+            }
+        };
+        sessionBox.addActionListener(e -> fillTimes.run());
+        fillTimes.run();
+
+        JPanel form = new JPanel(new GridLayout(0, 2, 6, 6));
+        form.add(new JLabel("Session:"));                      form.add(sessionBox);
+        form.add(new JLabel("Start (yyyy-MM-dd HH:mm):"));     form.add(fromField);
+        form.add(new JLabel("End (yyyy-MM-dd HH:mm):"));       form.add(toField);
+
+        int ok = JOptionPane.showConfirmDialog(this,
+            new Object[] {"Machine: " + name, form},
+            "Reserve for session", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (ok != JOptionPane.OK_OPTION) {
+            return;
+        }
+        SessionSlot session = (SessionSlot) sessionBox.getSelectedItem();
+        LocalDateTime from = parseDateTime(fromField.getText());
+        LocalDateTime to = parseDateTime(toField.getText());
+        runWrite(() -> service.reserveForSession(id, session, from, to),
+                 name + " is reserved for session #" + (session == null ? "?" : session.getSessionId()) + ".");
+    }
+
+    /** null neu nhap sai; Service se bao loi de hieu. */
+    private static LocalDateTime parseDateTime(String text) {
+        try {
+            return LocalDateTime.parse(text.trim().replace(' ', 'T'));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /** null neu nhap sai; Service se bao loi de hieu. */

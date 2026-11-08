@@ -3,11 +3,13 @@ package com.gym.service;
 import com.gym.dao.EquipmentDao;
 import com.gym.dao.StaffDao;
 import com.gym.model.Equipment;
+import com.gym.model.SessionSlot;
 import com.gym.model.Staff;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,34 +58,68 @@ public class EquipmentService {
         return staffDao.findAll();
     }
 
-    /** Bao hong / doi trang thai may. Kiem tra dau vao truoc khi ghi. */
-    public void changeStatus(int equipmentId, String newStatus) throws SQLException {
+    /**
+     * Mot hanh dong duy nhat cho may: doi trang thai va/hoac ghi log bao tri.
+     * - Sang Under Maintenance / Broken: BAT BUOC co nguoi ky va mo ta (de biet ai chiu trach nhiem).
+     * - Giu nguyen trang thai hoac ve Active: chi ghi log neu nguoi dung nhap mo ta cong viec da lam.
+     * Luat BR-FAC-05 (nguoi ky phai la Le tan hoac Quan ly) do trigger trong CSDL kiem tra.
+     */
+    public void updateMachine(int equipmentId, String currentStatus, String newStatus, LocalDate date,
+                              BigDecimal cost, String description, Staff signer) throws SQLException {
         if (!STATUSES.contains(newStatus)) {
             throw new IllegalArgumentException("Invalid status. Choose Active, Under Maintenance or Broken.");
         }
-        if (dao.updateStatus(equipmentId, newStatus) == 0) {
-            throw new IllegalArgumentException("This machine no longer exists. Press Refresh and try again.");
+        boolean statusChanges = !newStatus.equals(currentStatus);
+        boolean hasDescription = description != null && !description.trim().isEmpty();
+        boolean logRequired = statusChanges && !"Active".equals(newStatus);
+        boolean writeLog = logRequired || hasDescription;
+
+        if (!statusChanges && !writeLog) {
+            throw new IllegalArgumentException(
+                "Nothing to save. Change the status, or describe the maintenance work that was done.");
         }
+        if (writeLog) {
+            if (signer == null) {
+                throw new IllegalArgumentException("Please choose who is responsible (Signed off by).");
+            }
+            if (!hasDescription) {
+                throw new IllegalArgumentException("Please describe the work or the reason, for example \"Belt is worn out\".");
+            }
+            if (description.trim().length() > 255) {
+                throw new IllegalArgumentException("The description is too long (maximum 255 characters).");
+            }
+            if (date == null) {
+                throw new IllegalArgumentException("Please enter the date as yyyy-MM-dd, for example 2026-11-06.");
+            }
+            if (cost == null || cost.signum() < 0) {
+                throw new IllegalArgumentException("The cost must be a number that is 0 or more.");
+            }
+        }
+        dao.updateStatusAndLog(equipmentId,
+            statusChanges ? newStatus : null,
+            date, cost,
+            writeLog ? description.trim() : null,
+            writeLog ? signer.getStaffId() : null);
     }
 
-    /** Them log bao tri. Luat BR-FAC-05 (nguoi ky) do trigger trong CSDL kiem tra. */
-    public void addMaintenanceLog(int equipmentId, LocalDate date, BigDecimal cost,
-                                  String description, Staff signer) throws SQLException {
-        if (date == null) {
-            throw new IllegalArgumentException("Please enter the date as yyyy-MM-dd, for example 2026-11-06.");
+    /** Cac buoi tap co the dat may (lop va PT chua ket thuc, khong tinh buoi da huy). */
+    public List<SessionSlot> getReservableSessions() throws SQLException {
+        return dao.findReservableSessions();
+    }
+
+    /** Dat may cho buoi tap. Gio nam trong buoi, may Active, khong trung gio: do trigger kiem tra. */
+    public void reserveForSession(int equipmentId, SessionSlot session,
+                                  LocalDateTime from, LocalDateTime to) throws SQLException {
+        if (session == null) {
+            throw new IllegalArgumentException("Please choose a session.");
         }
-        if (cost == null || cost.signum() < 0) {
-            throw new IllegalArgumentException("The cost must be a number that is 0 or more.");
+        if (from == null || to == null) {
+            throw new IllegalArgumentException(
+                "Please enter the start and end time as yyyy-MM-dd HH:mm, for example 2026-11-09 07:15.");
         }
-        if (description == null || description.trim().isEmpty()) {
-            throw new IllegalArgumentException("Please describe the maintenance work.");
+        if (!to.isAfter(from)) {
+            throw new IllegalArgumentException("The end time must be after the start time.");
         }
-        if (description.trim().length() > 255) {
-            throw new IllegalArgumentException("The description is too long (maximum 255 characters).");
-        }
-        if (signer == null) {
-            throw new IllegalArgumentException("Please choose who signs off the log.");
-        }
-        dao.addMaintenanceLog(equipmentId, date, cost, description.trim(), signer.getStaffId());
+        dao.reserveForSession(equipmentId, session.getSessionId(), from, to);
     }
 }

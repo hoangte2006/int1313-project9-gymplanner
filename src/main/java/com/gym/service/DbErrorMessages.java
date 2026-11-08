@@ -26,7 +26,7 @@ public final class DbErrorMessages {
         String raw = String.valueOf(e.getMessage());
         switch (e.getErrorCode()) {
             case 50022:   // BR-FAC-05
-                return "This maintenance log was NOT saved.\n"
+                return "Nothing was saved.\n"
                      + "A maintenance log must be signed off by a Receptionist or a Manager.\n"
                      + "Please choose a different person in \"Signed off by\".";
             case 50005:   // BR-SCH-05 (PT)
@@ -49,10 +49,21 @@ public final class DbErrorMessages {
                      + "Only machines with status Active can be reserved; this one is Broken or Under Maintenance.";
             case 50023:   // BR-FAC-09
             case 50025:
-                return "The reservation must lie inside the time of its session.";
+                return "The reserved time must lie inside the time of the session.\n"
+                     + "Choose a start and end time within the session hours.";
             case 50024:   // BR-FAC-10
-                return "This machine is already reserved by another session during this time.";
+                return "This machine is already reserved by another session during this time.\n"
+                     + "Choose a different time or a different machine.";
             case 547:     // CHECK / FOREIGN KEY
+                if (raw.contains("CK_SEU_Time")) {
+                    return "The end time must be after the start time.";
+                }
+                if (raw.contains("FK_SEU_SESSION")) {
+                    return "This session no longer exists. Press Refresh and try again.";
+                }
+                if (raw.contains("FK_SEU_EQUIPMENT")) {
+                    return "This machine no longer exists. Press Refresh and try again.";
+                }
                 if (raw.contains("CK_MLOG_Cost")) {
                     return "The cost cannot be negative.";
                 }

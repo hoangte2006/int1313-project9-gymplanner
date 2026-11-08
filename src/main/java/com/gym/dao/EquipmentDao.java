@@ -2,6 +2,7 @@ package com.gym.dao;
 
 import com.gym.db.DbConnection;
 import com.gym.model.Equipment;
+import com.gym.model.SessionSlot;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -9,7 +10,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,36 +40,97 @@ public class EquipmentDao {
         return list;
     }
 
-    /** Doi trang thai may. Tra ve so dong bi doi (0 neu khong co thiet bi nay). */
-    public int updateStatus(int equipmentId, String newStatus) throws SQLException {
-        String sql = "UPDATE dbo.EQUIPMENT SET Operational_Status = ? WHERE Equipment_ID = ?";
-        try (Connection c = DbConnection.get();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, newStatus);
-            ps.setInt(2, equipmentId);
-            return ps.executeUpdate();
+    /**
+     * Cap nhat mot may trong MOT transaction: doi trang thai (neu newStatus khac null) va/hoac
+     * ghi mot log bao tri (neu description khac null). Log_no khong tu tang (khoa chinh la
+     * Equipment_ID + Log_no) nen lay so lon nhat hien co cua may nay + 1 ngay trong cau INSERT.
+     * Neu trigger tu choi (vi du nguoi ky la Trainer, BR-FAC-05) thi ca trang thai cung KHONG bi doi.
+     */
+    public void updateStatusAndLog(int equipmentId, String newStatus, LocalDate date, BigDecimal cost,
+                                   String description, Integer loggedBy) throws SQLException {
+        try (Connection c = DbConnection.get()) {
+            c.setAutoCommit(false);
+            try {
+                if (newStatus != null) {
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "UPDATE dbo.EQUIPMENT SET Operational_Status = ? WHERE Equipment_ID = ?")) {
+                        ps.setString(1, newStatus);
+                        ps.setInt(2, equipmentId);
+                        if (ps.executeUpdate() == 0) {
+                            throw new IllegalArgumentException("This machine no longer exists. Press Refresh and try again.");
+                        }
+                    }
+                }
+                if (description != null) {
+                    String insertLog = "INSERT INTO dbo.MAINTENANCE_LOG "
+                        + "(Equipment_ID, Log_no, Maintenance_Date, Cost, Description, Logged_By) "
+                        + "SELECT ?, ISNULL(MAX(Log_no), 0) + 1, ?, ?, ?, ? "
+                        + "FROM dbo.MAINTENANCE_LOG WITH (UPDLOCK, HOLDLOCK) WHERE Equipment_ID = ?";
+                    try (PreparedStatement ps = c.prepareStatement(insertLog)) {
+                        ps.setInt(1, equipmentId);
+                        ps.setObject(2, date);
+                        ps.setBigDecimal(3, cost);
+                        ps.setString(4, description);
+                        ps.setInt(5, loggedBy);
+                        ps.setInt(6, equipmentId);
+                        ps.executeUpdate();
+                    }
+                }
+                c.commit();
+            } catch (SQLException | RuntimeException ex) {
+                try {
+                    c.rollback();   // trigger co the da huy transaction, khi do lenh nay khong con tac dung
+                } catch (SQLException ignored) { }
+                throw ex;
+            }
         }
     }
 
     /**
-     * Them mot log bao tri. Log_no khong tu tang (khoa chinh la Equipment_ID + Log_no),
-     * nen lay so lon nhat hien co cua may nay + 1 ngay trong cau INSERT (khoa dong de
-     * hai nguoi khong lay trung so). Trigger trg_MLOG_SignerRole (BR-FAC-05) co the tu choi.
+     * Cac buoi tap chua ket thuc de chon dat may: lop (ten lop) va PT, bo lop da huy
+     * va PT da huy. Lay toi da 500 buoi gan nhat theo gio bat dau.
      */
-    public int addMaintenanceLog(int equipmentId, LocalDate date, BigDecimal cost,
-                                 String description, int loggedBy) throws SQLException {
-        String sql = "INSERT INTO dbo.MAINTENANCE_LOG "
-            + "(Equipment_ID, Log_no, Maintenance_Date, Cost, Description, Logged_By) "
-            + "SELECT ?, ISNULL(MAX(Log_no), 0) + 1, ?, ?, ?, ? "
-            + "FROM dbo.MAINTENANCE_LOG WITH (UPDLOCK, HOLDLOCK) WHERE Equipment_ID = ?";
+    public List<SessionSlot> findReservableSessions() throws SQLException {
+        String sql = "SELECT TOP 500 s.Session_ID, COALESCE(c.Class_Name, 'PT session') AS Title, "
+            + "r.Room_Name, s.Start_Time, s.End_Time "
+            + "FROM dbo.[SESSION] AS s "
+            + "LEFT JOIN dbo.CLASS AS c ON c.Session_ID = s.Session_ID "
+            + "LEFT JOIN dbo.PT_BOOKING AS p ON p.Session_ID = s.Session_ID "
+            + "LEFT JOIN dbo.ROOM AS r ON r.Room_ID = s.Room_ID "
+            + "WHERE s.End_Time >= GETDATE() "
+            + "AND ISNULL(c.Status, '') <> 'Cancelled' "
+            + "AND ISNULL(p.Booking_Status, '') <> 'Cancelled' "
+            + "ORDER BY s.Start_Time, s.Session_ID";
+        List<SessionSlot> list = new ArrayList<>();
+        try (Connection c = DbConnection.get();
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(new SessionSlot(
+                    rs.getInt("Session_ID"),
+                    rs.getString("Title"),
+                    rs.getString("Room_Name"),
+                    rs.getTimestamp("Start_Time").toLocalDateTime(),
+                    rs.getTimestamp("End_Time").toLocalDateTime()));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Dat may cho mot buoi tap. Trigger kiem tra: may phai Active (BR-FAC-06), gio nam
+     * trong buoi tap (BR-FAC-09), khong trung gio voi buoi khac (BR-FAC-10).
+     */
+    public int reserveForSession(int equipmentId, int sessionId, LocalDateTime from, LocalDateTime to)
+            throws SQLException {
+        String sql = "INSERT INTO dbo.SESSION_EQUIPMENT_USAGE (Equipment_ID, Session_ID, Reserved_From, Reserved_To) "
+                   + "VALUES (?, ?, ?, ?)";
         try (Connection c = DbConnection.get();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, equipmentId);
-            ps.setObject(2, date);
-            ps.setBigDecimal(3, cost);
-            ps.setString(4, description);
-            ps.setInt(5, loggedBy);
-            ps.setInt(6, equipmentId);
+            ps.setInt(2, sessionId);
+            ps.setTimestamp(3, Timestamp.valueOf(from));
+            ps.setTimestamp(4, Timestamp.valueOf(to));
             return ps.executeUpdate();
         }
     }
