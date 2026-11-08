@@ -226,7 +226,7 @@ public class EquipmentPanel extends JPanel {
             JOptionPane.showMessageDialog(this,
                 name + " is \"" + status + "\" and cannot be reserved.\n"
                 + "Only machines with status Active can be reserved for a session.\n"
-                + "Use \"Change status...\" to set it back to Active when it is repaired.",
+                + "Use \"Status & maintenance log...\" to set it back to Active when it is repaired.",
                 "Machine not available", JOptionPane.WARNING_MESSAGE);
             return;
         }
