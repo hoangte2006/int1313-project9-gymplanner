@@ -4,7 +4,7 @@
 
 ## 1. Chạy thử (2 phút)
 
-1. Chạy `sql/01_create_tables.sql`, `sql/02_triggers.sql`, `sql/03_sample_data.sql` trong SSMS (database `GymPlanner_dev`).
+1. Chạy lần lượt các file trong thư mục `sql/` bằng SSMS (database `GymPlanner_dev`), **đúng thứ tự này**: `01_create_tables.sql` → `04_sample_data.sql` → `02_triggers.sql` → `03_indexes.sql`. Dữ liệu mẫu (`04`) chạy **trước** trigger (`02`) để nạp dữ liệu không bị trigger chặn; sau đó `02` và `03` mới bật luật và chỉ mục.
 2. Trong `src/main/resources/`, sao chép `db.properties.example` thành `db.properties`, điền tài khoản SQL của bạn. **Không commit file `db.properties`** (đã có trong `.gitignore`).
 3. Mở terminal ở thư mục dự án, chạy:
    `mvn -q compile exec:java -Dexec.mainClass=com.gym.App`

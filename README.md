@@ -26,7 +26,7 @@ Project tracking sheet (maintained by Te): [Google Sheets – task assignment](h
 docs/Report_Gym_Planner.docx   ← project report (the only report file)
 docs/                          ← images used in the report
 README.md                      ← short description + plan link + how to run SQL
-sql/                           ← 01_create_tables.sql, 02_triggers.sql, ... (numbered by run order)
+sql/                           ← 01_create_tables.sql, 04_sample_data.sql, 02_triggers.sql, 03_indexes.sql, ... (see run order below)
 so_do/                         ← ER and EER diagrams (.png)
 anh_kiem_chung/                ← screenshots of execution results
 src/                           ← Java app (JDBC) connecting to SQL Server
@@ -34,7 +34,7 @@ src/                           ← Java app (JDBC) connecting to SQL Server
 
 ## ▶️ How to run the SQL
 
-Run the files in `sql/` **in numeric order** (`01_create_tables.sql` → `02_triggers.sql` → ...) on the same database (Microsoft SQL Server, e.g. in SSMS). Screenshots of each step are saved in `anh_kiem_chung/`.
+Run the files in `sql/` on the same database in this order: `01_create_tables.sql` → `04_sample_data.sql` → `02_triggers.sql` → `03_indexes.sql` (sample data is loaded before the triggers); the later scripts (`05` onward: tests, bulk data, views, queries, security) come after these four. Use Microsoft SQL Server (e.g. in SSMS). Screenshots of each step are saved in `anh_kiem_chung/`.
 
 ## ☕ How to run the Java app
 
