@@ -73,16 +73,16 @@ class Canvas:
 
 # ---------------------------------------------------------------- Fig 1
 def fig1():
-    wide = ["Session_ID", "Member_ID", "Registration_Date", "Attendance_Status", "Class_Name", "Max_Capacity"]
+    wide = ["Session_ID", "Member_ID", "Registration_Date", "Attendance_Status", "Class_Name", "Max_Capacity", "Status"]
     Canvas("Normalization Figure 1", [
         ("rel", "CLASS_REG_WIDE   (1NF, not 2NF)", wide, ["Session_ID", "Member_ID"], [
             (["Session_ID", "Member_ID"], ["Registration_Date", "Attendance_Status"], "FD1", ""),
-            (["Session_ID"], ["Class_Name", "Max_Capacity"], "FD2", "partial dependency")]),
+            (["Session_ID"], ["Class_Name", "Max_Capacity", "Status"], "FD2", "partial dependency")]),
         ("text", ["        ▼   move FD2 into its own relation   ▼"]),
         ("rel", "CLASS_REGISTRATION", ["Session_ID", "Member_ID", "Registration_Date", "Attendance_Status"],
          ["Session_ID", "Member_ID"], [(["Session_ID", "Member_ID"], ["Registration_Date", "Attendance_Status"], "FD1", "")]),
-        ("rel", "CLASS", ["Session_ID", "Class_Name", "Max_Capacity"], ["Session_ID"],
-         [(["Session_ID"], ["Class_Name", "Max_Capacity"], "FD2", "")]),
+        ("rel", "CLASS", ["Session_ID", "Class_Name", "Max_Capacity", "Status"], ["Session_ID"],
+         [(["Session_ID"], ["Class_Name", "Max_Capacity", "Status"], "FD2", "")]),
     ], "1NF but not 2NF, decomposed into CLASS_REGISTRATION and CLASS").run("Norm_Fig1_CLASS_REG_WIDE_2NF.png")
 
 # ---------------------------------------------------------------- Fig 2
@@ -137,8 +137,8 @@ def fig5():
         ("rel", "SESSION", ["Session_ID", "Session_Type", "Room_ID", "Trainer_ID", "Start_Time", "End_Time"], ["Session_ID"],
          [(["Session_ID"], ["Session_Type", "Room_ID", "Trainer_ID", "Start_Time", "End_Time"], "FD1", "")],
          ["Room_ID and Trainer_ID are foreign keys; no attribute of SESSION depends on them (no transitive arrow)."]),
-        ("rel", "CLASS", ["Session_ID", "Class_Name", "Max_Capacity"], ["Session_ID"],
-         [(["Session_ID"], ["Class_Name", "Max_Capacity"], "FD1", "")]),
+        ("rel", "CLASS", ["Session_ID", "Class_Name", "Max_Capacity", "Status"], ["Session_ID"],
+         [(["Session_ID"], ["Class_Name", "Max_Capacity", "Status"], "FD1", "")]),
         ("rel", "PT_BOOKING", ["Session_ID", "Member_ID", "Booking_Status"], ["Session_ID"],
          [(["Session_ID"], ["Member_ID", "Booking_Status"], "FD1", "")]),
         ("rel", "CLASS_REGISTRATION", ["Session_ID", "Member_ID", "Registration_Date", "Attendance_Status"],

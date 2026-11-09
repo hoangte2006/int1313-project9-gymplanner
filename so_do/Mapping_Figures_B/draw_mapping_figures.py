@@ -169,7 +169,7 @@ def fig3():
     cl = f.ent(330, 680, 170, "CLASS"); pt = f.ent(1000, 680, 300, "PT_BOOKING")
     f.line((750, 496), cl["top"]); f.line((750, 496), pt["top"])
     subset_arc(f, (750, 496), cl["top"]); subset_arc(f, (750, 496), pt["top"])
-    f.row_attrs(810, ["Class_Name", "Max_Capacity"], cl["bottom"], 330)
+    f.row_attrs(810, ["Class_Name", "Max_Capacity", "Status"], cl["bottom"], 330)
     f.att(820, 810, "Booking_Status", (940, 706))
     f.diamond(1130, 830, "BOOKS_PT", w=200, h=100)
     f.line((1130, 706), (1130, 780)); f.ax.text(1150, 745, "N", fontsize=14, fontweight="bold")
@@ -178,7 +178,7 @@ def fig3():
     f.label(40, 1150, "Relational schema")
     s = f.table(110, 1210, "SESSION", ["Session_ID", "Session_Type", "Room_ID", "Trainer_ID", "Start_Time", "End_Time"],
                 notes={"Room_ID": "FK, NULL", "Trainer_ID": "FK"})
-    c = f.table(110, 1380, "CLASS", ["Session_ID", "Class_Name", "Max_Capacity"], notes={"Session_ID": "PK, FK"})
+    c = f.table(110, 1380, "CLASS", ["Session_ID", "Class_Name", "Max_Capacity", "Status"], notes={"Session_ID": "PK, FK"})
     p = f.table(110, 1530, "PT_BOOKING", ["Session_ID", "Member_ID", "Booking_Status"], pk=("Session_ID",),
                 notes={"Session_ID": "PK, FK", "Member_ID": "FK to MEMBER"})
     f.fk(c["Session_ID"], s["Session_ID"], 70); f.fk(p["Session_ID"], s["Session_ID"], 50)
@@ -222,7 +222,7 @@ def fig5():
     f.label(40, 145, "EER diagram (fragment)")
     cl = f.ent(380, 420, 170, "CLASS"); me = f.ent(1230, 420, 170, "MEMBER")
     f.att(250, 290, "Session_ID", (360, 394), pk=True); f.att(470, 240, "Class_Name", (400, 394))
-    f.att(150, 420, "Max_Capacity", cl["left"])
+    f.att(150, 420, "Max_Capacity", cl["left"]); f.att(380, 520, "Status", cl["bottom"])
     f.att(1230, 290, "Member_ID", (1230, 394), pk=True); f.att(1400, 345, "Email", (1280, 394))
     f.ax.text(1370, 255, "...", fontsize=22, ha="center", va="center")
     f.diamond(790, 420, "REGISTER", w=230, h=110)
@@ -231,7 +231,7 @@ def fig5():
     f.att(640, 300, "Registration_Date", (770, 366)); f.att(930, 300, "Attendance_Status", (820, 368))
     f.mapping_arrow(750, 540, "Mapping: Step 5 (binary M:N relationship type)")
     f.label(40, 700, "Relational schema")
-    c = f.table(110, 760, "CLASS", ["Session_ID", "Class_Name", "Max_Capacity"])
+    c = f.table(110, 760, "CLASS", ["Session_ID", "Class_Name", "Max_Capacity", "Status"])
     m = f.table(900, 760, "MEMBER", ["Member_ID", "Email", "..."])
     r = f.table(250, 1010, "CLASS_REGISTRATION", ["Session_ID", "Member_ID", "Registration_Date", "Attendance_Status"],
                 pk=("Session_ID", "Member_ID"), notes={"Session_ID": "PK, FK", "Member_ID": "PK, FK"}, name_below=True)
@@ -240,9 +240,10 @@ def fig5():
     tx = (m["Member_ID"][0] + m["Member_ID"][1]) / 2
     f.ax.plot([mx, mx, tx, tx], [1030, 950, 950, 840], color=NAVY, lw=2.6)
     f.ax.add_patch(FancyArrowPatch((tx, 862), (tx, 832), arrowstyle="-|>", mutation_scale=22, color=NAVY, lw=0))
-    f.label(40, 1230, "Underline = primary key (the two foreign keys together). Arrows = foreign keys, both ON DELETE CASCADE.", size=13.5, bold=False, italic=True)
-    f.label(40, 1262, "The attributes of the relationship (Registration_Date, Attendance_Status) become columns of the new table.", size=13.5, bold=False, italic=True)
-    f.ax.set_ylim(1300, 0)
+    f.label(40, 1230, "Underline = primary key (the two foreign keys together). Arrows = foreign keys: Session_ID -> CLASS is ON DELETE CASCADE;", size=13.5, bold=False, italic=True)
+    f.label(40, 1262, "Member_ID -> MEMBER is ON DELETE NO ACTION (a member with registrations cannot be deleted, so the history is kept).", size=13.5, bold=False, italic=True)
+    f.label(40, 1294, "The attributes of the relationship (Registration_Date, Attendance_Status) become columns of the new table.", size=13.5, bold=False, italic=True)
+    f.ax.set_ylim(1335, 0)
     f.save("Mapping_Fig5_REGISTER.png")
 
 if __name__ == "__main__":
