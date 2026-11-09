@@ -675,7 +675,11 @@ GO
 
 /* =====================================================================
    BR-SCH-05: only members with an active membership can register for a class or book PT.
+<<<<<<< HEAD
    Active = Status 'Active' and Start_Date <= today < End_Date (End_Date exclusive).
+=======
+   Active = Status 'Active' and Start_Date <= today AND today < End_Date.
+>>>>>>> 9eaaf77f5c51bfa551cd118ab9d70cec006962c2
    Reads as: reject if some registered member has NO such active membership.
    ===================================================================== */
 CREATE OR ALTER TRIGGER dbo.trg_CLASS_REG_ActiveMembership
@@ -688,8 +692,13 @@ BEGIN
                WHERE NOT EXISTS (SELECT 1 FROM dbo.MEMBERSHIP AS ms
                                  WHERE ms.Member_ID = new_reg.Member_ID
                                    AND ms.Status = 'Active'
+<<<<<<< HEAD
                                    AND ms.Start_Date <= CAST(GETDATE() AS DATE)
                                    AND CAST(GETDATE() AS DATE) < ms.End_Date))
+=======
+                                   AND ms.Start_Date <= CAST(GETDATE() AS DATE) 
+                                   AND CAST(GETDATE() AS DATE) < ms.End_Date
+>>>>>>> 9eaaf77f5c51bfa551cd118ab9d70cec006962c2
     BEGIN
         ROLLBACK TRANSACTION;
         THROW 50017, 'BR-SCH-05: the member has no active membership, so cannot register for a class.', 1;
@@ -708,8 +717,13 @@ BEGIN
                WHERE NOT EXISTS (SELECT 1 FROM dbo.MEMBERSHIP AS ms
                                  WHERE ms.Member_ID = new_pt.Member_ID
                                    AND ms.Status = 'Active'
+<<<<<<< HEAD
                                    AND ms.Start_Date <= CAST(GETDATE() AS DATE)
                                    AND CAST(GETDATE() AS DATE) < ms.End_Date))
+=======
+                                   AND ms.Start_Date <= CAST(GETDATE() AS DATE) 
+                                   AND CAST(GETDATE() AS DATE) < ms.End_Date
+>>>>>>> 9eaaf77f5c51bfa551cd118ab9d70cec006962c2
     BEGIN
         ROLLBACK TRANSACTION;
         THROW 50005, 'BR-SCH-05: the member has no active membership, so cannot book a PT session.', 1;
