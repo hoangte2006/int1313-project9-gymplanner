@@ -1,7 +1,7 @@
 /* =====================================================================
    Gym Membership & Personal Training Planner  -  Team Dong Vui (#9)
    INT1313 - Database Basics
-   Phase 3 - Script 06 (DESIGN B): bulk test data (about 38,000 rows)
+   Phase 3 - Script 06 (DESIGN B): bulk test data (36,998 rows)
 
    Run AFTER 01, 04, 02 and 03 (and 05 if you like).
    - It only ADDS rows. Every new row has an ID of 1001 or higher, so the
