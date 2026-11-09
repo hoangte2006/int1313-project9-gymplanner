@@ -12,15 +12,15 @@ public class ConnectionTest {
         try (Connection c = DbConnection.get(); 
              Statement st = c.createStatement()) {
 
-            System.out.println("Ket noi thanh cong den: " + c.getCatalog());
+            System.out.println("Connected successfully to: " + c.getCatalog());
 
             try (ResultSet rs = st.executeQuery(
                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'sysdiagrams'")) {
                 rs.next();
-                System.out.println("So bang trong database: " + rs.getInt(1) + " (ky vong 16)");
+                System.out.println("Number of tables in the database: " + rs.getInt(1) + " (expected 16)");
             }
         } catch (SQLException e) {
-            System.out.println("KET NOI THAT BAI: " + e.getMessage());
+            System.out.println("CONNECTION FAILED: " + e.getMessage());
         }
     }
 }

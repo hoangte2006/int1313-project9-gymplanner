@@ -31,16 +31,16 @@ public class ClassPtPanel extends JPanel {
         service = new ClassPtService();
         setLayout(new BorderLayout(10, 10));
 
-        // 1. Thanh công cụ phía trên
+        // 1. Toolbar
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        topPanel.add(new JLabel("Mã Hội Viên:"));
+        topPanel.add(new JLabel("Member ID:"));
         txtMemberId = new JTextField("M001", 8);
         topPanel.add(txtMemberId);
 
         btnRefresh = new JButton("Refresh");
-        btnRegisterClass = new JButton("Đăng ký Lớp");
-        btnBookPT = new JButton("Đặt Buổi PT");
-        btnNewPT = new JButton("Tạo & đặt PT mới...");
+        btnRegisterClass = new JButton("Register for Class");
+        btnBookPT = new JButton("Book PT Session");
+        btnNewPT = new JButton("Create & book new PT...");
 
         topPanel.add(btnRefresh);
         topPanel.add(btnRegisterClass);
@@ -48,10 +48,10 @@ public class ClassPtPanel extends JPanel {
         topPanel.add(btnNewPT);
         add(topPanel, BorderLayout.NORTH);
 
-        // 2. Cấu trúc các cột JTable
+        // 2. JTable columns
         String[] columns = {
-            "Mã Buổi (ID)", "Loại", "Tên Lớp / PT", "Bắt Đầu", 
-            "Kết Thúc", "Phòng", "HLV", "Sức Chứa", "Trạng Thái"
+            "Session ID", "Type", "Class / PT", "Start", 
+            "End", "Room", "Trainer", "Capacity", "Status"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -60,7 +60,7 @@ public class ClassPtPanel extends JPanel {
             }
         };
 
-        // 3. Khởi tạo JTable và định dạng UI
+        // 3. Create the JTable and style it
         table = new JTable(tableModel);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -72,50 +72,50 @@ public class ClassPtPanel extends JPanel {
 
         add(new JScrollPane(table), BorderLayout.CENTER);
 
-        // 4. Xử lý nút bấm
+        // 4. Button handlers
         btnRefresh.addActionListener(e -> loadData());
 
         btnRegisterClass.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 lớp học từ danh sách!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please select a class from the list.", "No class selected", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String type = table.getValueAt(row, 1).toString();
             if (!"Class".equalsIgnoreCase(type)) {
-                JOptionPane.showMessageDialog(this, "Dòng được chọn là buổi PT, vui lòng chọn nút 'Đặt Buổi PT'!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "The selected row is a PT session. Use the 'Book PT Session' button.", "Wrong session type", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             String sessionId = table.getValueAt(row, 0).toString();
             String memberId = txtMemberId.getText().trim();
             try {
                 service.registerClass(sessionId, memberId);
-                JOptionPane.showMessageDialog(this, "Đăng ký lớp thành công!");
+                JOptionPane.showMessageDialog(this, "Registered for the class.");
                 loadData();
             } catch (Exception ex) {
-                showError("Không đăng ký được lớp", ex);
+                showError("Could not register for the class", ex);
             }
         });
 
         btnBookPT.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 buổi PT từ danh sách!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please select a PT session from the list.", "No session selected", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String type = table.getValueAt(row, 1).toString();
             if (!"PT".equalsIgnoreCase(type)) {
-                JOptionPane.showMessageDialog(this, "Dòng được chọn là Lớp học, vui lòng chọn nút 'Đăng ký Lớp'!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "The selected row is a class. Use the 'Register for Class' button.", "Wrong session type", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             String sessionId = table.getValueAt(row, 0).toString();
             String memberId = txtMemberId.getText().trim();
             try {
                 service.bookPT(sessionId, memberId);
-                JOptionPane.showMessageDialog(this, "Đặt buổi PT thành công!");
+                JOptionPane.showMessageDialog(this, "PT session booked.");
                 loadData();
             } catch (Exception ex) {
-                showError("Không đặt được buổi PT", ex);
+                showError("Could not book the PT session", ex);
             }
         });
 
@@ -135,28 +135,21 @@ public class ClassPtPanel extends JPanel {
                     List<Object[]> list = get();
                     tableModel.setRowCount(0);
                     for (Object[] row : list) {
-                        // Tự động sửa hiển thị phông chữ tiếng Việt cho cột Tên Lớp/PT
-                        if (row[2] != null) {
-                            String className = row[2].toString();
-                            if (className.contains("Bu?") || className.contains("Bu?i") || className.equalsIgnoreCase("Bu?i t?p PT")) {
-                                row[2] = "Buổi tập PT";
-                            }
-                        }
                         tableModel.addRow(row);
                     }
                 } catch (Exception ex) {
-                    showError("Không tải được dữ liệu", ex);
+                    showError("Could not load the schedule", ex);
                 }
             }
         }.execute();
     }
 
-    /** Một lựa chọn trong ô chọn phòng / huấn luyện viên. */
+    /** One choice in the room / trainer drop-down. */
     private record Option(int id, String label) {
         @Override public String toString() { return label; }
     }
 
-    /** Tạo buổi PT mới và đặt cho hội viên (mã nhập ở ô "Mã Hội Viên"), trong một transaction. */
+    /** Create a new PT session and book it for the member typed in "Member ID", in one transaction. */
     private void newPtSession() {
         String memberId = txtMemberId.getText().trim();
         new SwingWorker<List<List<Object[]>>, Void>() {
@@ -168,7 +161,7 @@ public class ClassPtPanel extends JPanel {
                     List<List<Object[]>> lists = get();
                     showNewPtDialog(memberId, toOptions(lists.get(0)), toOptions(lists.get(1)));
                 } catch (Exception ex) {
-                    showError("Không tải được danh sách phòng / HLV", ex);
+                    showError("Could not load rooms / trainers", ex);
                 }
             }
         }.execute();
@@ -187,13 +180,13 @@ public class ClassPtPanel extends JPanel {
         JTextField minutesField = new JTextField("60", 14);
 
         JPanel form = new JPanel(new GridLayout(0, 2, 6, 6));
-        form.add(new JLabel("Hội viên:"));                  form.add(new JLabel(memberId));
-        form.add(new JLabel("Phòng:"));                     form.add(roomBox);
-        form.add(new JLabel("Huấn luyện viên:"));           form.add(trainerBox);
-        form.add(new JLabel("Bắt đầu (yyyy-MM-dd HH:mm):")); form.add(startField);
-        form.add(new JLabel("Thời lượng (phút):"));         form.add(minutesField);
+        form.add(new JLabel("Member:"));                  form.add(new JLabel(memberId));
+        form.add(new JLabel("Room:"));                     form.add(roomBox);
+        form.add(new JLabel("Trainer:"));           form.add(trainerBox);
+        form.add(new JLabel("Start (yyyy-MM-dd HH:mm):")); form.add(startField);
+        form.add(new JLabel("Duration (minutes):"));         form.add(minutesField);
 
-        int ok = JOptionPane.showConfirmDialog(this, form, "Tạo & đặt buổi PT mới",
+        int ok = JOptionPane.showConfirmDialog(this, form, "Create & book new PT session",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (ok != JOptionPane.OK_OPTION) {
             return;
@@ -212,10 +205,10 @@ public class ClassPtPanel extends JPanel {
                 try {
                     int sessionId = get();
                     JOptionPane.showMessageDialog(ClassPtPanel.this,
-                        "Đã tạo và đặt buổi PT mới (mã buổi " + sessionId + ").");
+                        "New PT session created and booked (session ID " + sessionId + ").");
                     loadData();
                 } catch (Exception ex) {
-                    showError("Không đặt được buổi PT mới", ex);
+                    showError("Could not book the new PT session", ex);
                 }
             }
         }.execute();
@@ -237,7 +230,7 @@ public class ClassPtPanel extends JPanel {
         }
     }
 
-    /** Lấy lỗi gốc (SwingWorker bọc trong ExecutionException) và hiện câu dễ hiểu. */
+    /** Unwrap the real error (SwingWorker wraps it in ExecutionException) and show a clear message. */
     private void showError(String title, Exception ex) {
         Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
         JOptionPane.showMessageDialog(this, DbErrorMessages.explain(cause), title, JOptionPane.WARNING_MESSAGE);

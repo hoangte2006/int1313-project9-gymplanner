@@ -26,9 +26,9 @@ public class EquipmentDao {
     public List<Equipment> findAll() throws SQLException {
         List<Equipment> list = new ArrayList<>();
         try (Connection c = DbConnection.get();
-             Statement st = c.createStatement(); // Tao statement có nghĩa là : "tao 1 câu lệnh SQL để gửi cho SQL Server"
-             ResultSet rs = st.executeQuery(SELECT_ALL)) { // Thực hiện câu lệnh SQL và nhận kết quả trả về (ResultSet)
-            while (rs.next()) { // Di chuyển con trỏ xuống dòng tiếp theo (ban đầu con trỏ đứng trước dòng đầu tiên)
+             Statement st = c.createStatement(); // create a statement object used to send an SQL command to SQL Server
+             ResultSet rs = st.executeQuery(SELECT_ALL)) { // run the SQL command and receive the result (ResultSet)
+            while (rs.next()) { // move the cursor to the next row (it starts before the first row)
                 list.add(new Equipment(
                     rs.getInt("Equipment_ID"),
                     rs.getString("Equipment_Name"),
@@ -139,10 +139,10 @@ public class EquipmentDao {
     public static void main(String[] args) {
         try {
             List<Equipment> all = new EquipmentDao().findAll();
-            System.out.println("So thiet bi: " + all.size());
+            System.out.println("Number of machines: " + all.size());
             all.forEach(System.out::println);
         } catch (SQLException e) {
-            System.out.println("LOI: " + e.getMessage());
+            System.out.println("ERROR: " + e.getMessage());
         }
     }
 }

@@ -22,12 +22,12 @@ public final class DbConnection {
         try (InputStream in = DbConnection.class.getResourceAsStream("/db.properties")) {
             if (in == null) {
                 throw new IllegalStateException(
-                    "Khong thay db.properties. Hay sao chep db.properties.example thanh db.properties "
-                    + "trong src/main/resources va dien thong tin cua ban.");
+                    "db.properties not found. Copy db.properties.example to db.properties "
+                    + "in src/main/resources and fill in your own connection details.");
             }
             p.load(in);
         } catch (IOException e) {
-            throw new IllegalStateException("Khong doc duoc db.properties", e);
+            throw new IllegalStateException("Cannot read db.properties", e);
         }
         return p;
     }

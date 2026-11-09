@@ -32,24 +32,24 @@ public class ClassPtService {
     public int bookNewPt(String memberId, Integer roomId, Integer trainerId,
                          LocalDateTime start, int minutes) throws SQLException {
         if (memberId == null || memberId.trim().isEmpty()) {
-            throw new IllegalArgumentException("Hãy nhập mã hội viên.");
+            throw new IllegalArgumentException("Please enter the member ID.");
         }
         if (roomId == null || trainerId == null) {
-            throw new IllegalArgumentException("Hãy chọn phòng và huấn luyện viên.");
+            throw new IllegalArgumentException("Please choose a room and a trainer.");
         }
         if (start == null) {
-            throw new IllegalArgumentException("Hãy nhập giờ bắt đầu dạng yyyy-MM-dd HH:mm, ví dụ 2026-11-20 09:00.");
+            throw new IllegalArgumentException("Please enter the start time as yyyy-MM-dd HH:mm, for example 2026-11-20 09:00.");
         }
         if (minutes <= 0 || minutes > 480) {
-            throw new IllegalArgumentException("Thời lượng phải từ 1 đến 480 phút.");
+            throw new IllegalArgumentException("The duration must be between 1 and 480 minutes.");
         }
         if (start.isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Giờ bắt đầu phải ở tương lai.");
+            throw new IllegalArgumentException("The start time must be in the future.");
         }
         try {
             return dao.bookNewPt(memberId, roomId, trainerId, start, start.plusMinutes(minutes));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Mã hội viên không hợp lệ. Hãy nhập số, ví dụ 1 hoặc M001.");
+            throw new IllegalArgumentException("Invalid member ID. Enter a number, for example 1 or M001.");
         }
     }
 }

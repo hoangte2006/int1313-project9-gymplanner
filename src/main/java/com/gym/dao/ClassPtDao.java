@@ -10,7 +10,7 @@ public class ClassPtDao {
 
     public List<Object[]> findAllSchedule() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String sql = "SELECT s.Session_ID, s.Session_Type, ISNULL(c.Class_Name, N'Buổi tập PT') AS Title, " +
+        String sql = "SELECT s.Session_ID, s.Session_Type, ISNULL(c.Class_Name, N'PT session') AS Title, " +
                      "s.Start_Time, s.End_Time, r.Room_Name, st.Full_Name AS Trainer_Name, " +
                      "ISNULL(CAST(c.Max_Capacity AS VARCHAR), 'N/A') AS Capacity, " +
                      "ISNULL(c.Status, 'Scheduled') AS Status " +
@@ -40,7 +40,7 @@ public class ClassPtDao {
         return list;
     }
 
-    // 1. Đăng ký Lớp học
+    // 1. Register for a class
     public void registerClass(String sessionIdStr, String memberIdStr) throws Exception {
         int sessionId = Integer.parseInt(sessionIdStr.trim());
         int memberId = Integer.parseInt(memberIdStr.toUpperCase().replace("M", "").trim());
@@ -54,13 +54,13 @@ public class ClassPtDao {
             stmt.executeUpdate();
         } catch (SQLException ex) {
             if (ex.getErrorCode() == 2627 || ex.getErrorCode() == 2601) {
-                throw new Exception("Hội viên này đã đăng ký lớp học này rồi!");
+                throw new Exception("This member is already registered for this class.");
             }
             throw ex;
         }
     }
 
-    // 2. Đặt Buổi PT
+    // 2. Book a PT session
     public void bookPT(String sessionIdStr, String memberIdStr) throws Exception {
         int sessionId = Integer.parseInt(sessionIdStr.trim());
         int memberId = Integer.parseInt(memberIdStr.toUpperCase().replace("M", "").trim());
@@ -74,7 +74,7 @@ public class ClassPtDao {
             stmt.executeUpdate();
         } catch (SQLException ex) {
             if (ex.getErrorCode() == 2627 || ex.getErrorCode() == 2601) {
-                throw new Exception("Buổi PT này đã được đặt rồi, vui lòng chọn buổi khác!");
+                throw new Exception("This PT session is already booked. Please choose another session.");
             }
             throw ex;
         }
