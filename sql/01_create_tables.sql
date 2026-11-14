@@ -180,8 +180,8 @@ GO
 
    Do not add UNIQUE(Member_ID).
 
-   Overlapping active membership periods must be checked
-   in a later trigger or transaction-safe validation procedure.
+   Overlapping active membership periods are rejected by the
+   trigger trg_MEMBERSHIP_NoActiveOverlap (script 02, error 50001).
    --------------------------------------------------------------------- */
 
 
@@ -285,21 +285,24 @@ WHERE Ticket_ID IS NOT NULL;
 GO
 
 /* =====================================================================
-   Remaining Business Rules for Later Scripts
+   Business rules of tables 1-5 enforced outside this script
 
    BR-MEM-06:
-   Prevent overlapping active membership periods.
+   trg_MEMBERSHIP_NoActiveOverlap (script 02) rejects overlapping
+   active membership periods.
 
    BR-MEM-08:
-   Prevent overlapping membership and daily-pass access.
+   trg_TICKET_NoActiveMembership, trg_MEMBERSHIP_NoOverlappingTicket
+   and trg_MEMBER_Phone_NoAccessOverlap (script 02) prevent
+   overlapping membership and daily-pass access.
 
    BR-MEM-10:
-   Create purchase records and billing records atomically
-   using transactions.
+   The Java application (PurchaseService) creates the purchase
+   record and its billing record in one transaction.
 
    BR-MEM-13:
-   Grant access only when membership dates, status and payment
-   satisfy the access requirements.
+   The BR-SCH-05 triggers (script 02) allow a class registration
+   or PT booking only during an active membership period.
 
    ===================================================================== */
 
