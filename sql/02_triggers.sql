@@ -304,13 +304,10 @@ GO
 
    These unique indexes prevent duplicate billing records.
 
-   To guarantee purchase + bill creation together, use
-   stored procedures with explicit transactions:
-
-   usp_PurchaseMembership
-   usp_PurchaseDailyPass
-
-   These procedures belong to a separate SQL script.
+   A unique index cannot force a bill to exist. The application
+   (PurchaseService, Java) inserts the membership or ticket and its
+   'Pending' bill in one transaction and rolls both back if either
+   insert fails.
 
    BR-MEM-11:
    - Amount_Paid >= 0
@@ -321,13 +318,11 @@ GO
    Enforced by CHECK constraints in script 01.
 
    BR-MEM-13:
-   Membership access requires:
+   Access is checked by the BR-SCH-05 triggers (part 2 of this script):
    - Status = 'Active'
    - Start_Date <= Current_Date < End_Date
-   - Related Billing_Status = 'Paid'
-
-   This access validation belongs to application/procedure
-   logic, not an automatic billing trigger.
+   The payment status (Billing_Status) is not checked; this is a known
+   limitation of the design.
    ===================================================================== */
 
 /* #####################################################################
